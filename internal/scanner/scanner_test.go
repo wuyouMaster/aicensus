@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/uwa/aisweep/internal/registry"
-	"github.com/uwa/aisweep/internal/snapshot"
+	"github.com/wuyouMaster/aicensus/internal/registry"
+	"github.com/wuyouMaster/aicensus/internal/snapshot"
 )
 
 type testScanner struct {

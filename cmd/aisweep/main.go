@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/uwa/aisweep/internal/registry"
-	"github.com/uwa/aisweep/internal/scanner"
-	"github.com/uwa/aisweep/internal/server"
-	"github.com/uwa/aisweep/internal/snapshot"
+	"github.com/wuyouMaster/aicensus/internal/registry"
+	"github.com/wuyouMaster/aicensus/internal/scanner"
+	"github.com/wuyouMaster/aicensus/internal/server"
+	"github.com/wuyouMaster/aicensus/internal/snapshot"
 )
 
 const usage = `aisweep - AI tool storage inventory

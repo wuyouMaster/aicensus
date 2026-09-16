@@ -8,7 +8,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/uwa/aisweep/internal/platform"
+	"github.com/wuyouMaster/aicensus/internal/platform"
 )
 
 type Subdir struct {

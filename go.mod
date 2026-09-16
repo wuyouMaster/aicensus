@@ -1,4 +1,4 @@
-module github.com/uwa/aisweep
+module github.com/wuyouMaster/aicensus
 
 go 1.23.5
 

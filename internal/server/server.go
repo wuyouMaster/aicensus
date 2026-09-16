@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/uwa/aisweep/internal/i18n"
-	"github.com/uwa/aisweep/internal/registry"
-	"github.com/uwa/aisweep/internal/snapshot"
+	"github.com/wuyouMaster/aicensus/internal/i18n"
+	"github.com/wuyouMaster/aicensus/internal/registry"
+	"github.com/wuyouMaster/aicensus/internal/snapshot"
 )
 
 //go:embed templates

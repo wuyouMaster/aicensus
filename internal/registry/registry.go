@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/uwa/aisweep/internal/platform"
+	"github.com/wuyouMaster/aicensus/internal/platform"
 	"gopkg.in/yaml.v3"
 )
 

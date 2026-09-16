@@ -1,7 +1,10 @@
-# aisweep
+# AICensus
 
-Read-only inventory + trend tracker for AI CLI / app storage on macOS, Windows,
-and Linux.
+A local-first, read-only inventory and trend tracker for AI CLI / app storage
+on macOS, Windows, and Linux.
+
+The current executable name remains `aisweep` so existing local commands,
+environment variables, and stored snapshots continue to work.
 
 Phase 1: scan -> classify -> trend. No deletion yet (phase 2).
 
