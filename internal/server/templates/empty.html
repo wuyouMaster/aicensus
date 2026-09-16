@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>{{t .Lang "page_title"}}</title>
+<style>
+body{font:14px -apple-system,BlinkMacSystemFont,sans-serif;margin:2rem;color:#d6dde6;background:#0f1115}
+.container{max-width:720px;margin:0 auto}
+.nav{display:flex;gap:.25rem;align-items:center;margin-bottom:1rem;font-size:.85rem;flex-wrap:wrap}
+.nav a{color:#8a93a2;text-decoration:none;padding:.2rem .6rem;border-radius:4px}
+.nav a:hover{color:#d6dde6;background:#1c2026}
+.nav a.active{color:#d6dde6;background:#232831}
+.lang-switch{margin-left:auto;display:flex;gap:.25rem;font-size:.75rem}
+.lang-switch a{padding:.2rem .5rem}
+.lang-switch a.active{color:#d6dde6;background:#232831}
+h1{font-weight:500}
+code{background:#1c2026;padding:.1em .4em;border-radius:3px}
+</style>
+</head><body><div class="container">
+<nav class="nav">
+<a href="/" {{if eq .NavActive "overview"}}class="active"{{end}}>{{t .Lang "nav_overview"}}</a>
+<a href="/tools" {{if eq .NavActive "tools"}}class="active"{{end}}>{{t .Lang "nav_tools"}}</a>
+<span class="lang-switch">
+<a href="#" onclick="setLang('en');return false;" {{if eq .Lang "en"}}class="active"{{end}}>EN</a>
+<a href="#" onclick="setLang('zh');return false;" {{if eq .Lang "zh"}}class="active"{{end}}>中</a>
+</span>
+</nav>
+<h1>{{t .Lang "empty_title"}}</h1>
+<p>{{t .Lang "empty_body"}}</p>
+<script>
+window.setLang=function(l){document.cookie='aisweep_lang='+l+';path=/;max-age=31536000';location.reload();};
+</script>
+</div></body></html>

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>{{t .Lang "page_title"}}</title>
+<style>
+body{font:14px -apple-system,BlinkMacSystemFont,sans-serif;margin:0;color:#d6dde6;background:#0f1115}
+.wrap{max-width:1080px;margin:0 auto;padding:1.5rem}
+.nav{display:flex;gap:.25rem;align-items:center;margin-bottom:1rem;font-size:.85rem;flex-wrap:wrap}
+.nav a{color:#8a93a2;text-decoration:none;padding:.2rem .6rem;border-radius:4px}
+.nav a:hover{color:#d6dde6;background:#1c2026}
+.nav a.active{color:#d6dde6;background:#232831}
+.lang-switch{margin-left:auto;display:flex;gap:.25rem;font-size:.75rem}
+.lang-switch a{padding:.2rem .5rem}
+.lang-switch a.active{color:#d6dde6;background:#232831}
+h1{font-weight:500;font-size:1.4rem;margin:0 0 .25rem}
+h2{font-weight:500;font-size:1rem;margin:1.5rem 0 .5rem;color:#9aa4b2;text-transform:uppercase;letter-spacing:.05em}
+.meta{color:#8a93a2;font-size:.85rem}
+.card{background:#161a21;border:1px solid #232831;border-radius:6px;padding:.75rem 1rem;margin-bottom:.5rem}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem}
+.tile{background:#161a21;border:1px solid #232831;border-radius:6px;padding:.75rem}
+.tile .lbl{color:#8a93a2;font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+.tile .val{font-size:1.3rem;margin-top:.2rem;font-variant-numeric:tabular-nums}
+.delta-up{color:#f97373}.delta-down{color:#4ade80}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid #232831;font-size:.85rem}
+th{color:#8a93a2;font-weight:500;text-transform:uppercase;font-size:.7rem;letter-spacing:.05em}
+th.num{text-align:right;font-variant-numeric:tabular-nums}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+a{color:#7cc4ff;text-decoration:none}a:hover{text-decoration:underline}
+.share-cell{display:flex;flex-direction:column;align-items:stretch;gap:.25rem;min-width:120px}
+.share-val{text-align:right}
+.share-cell .bar{margin-top:0}
+.bar{position:relative;height:6px;background:#232831;border-radius:3px;overflow:hidden;margin-top:.25rem}
+.bar>span{position:absolute;left:0;top:0;bottom:0;background:#4f8cf7}
+.risk-safe{color:#4ade80}.risk-archive{color:#f5c451}.risk-manual{color:#f97373}.risk-never{color:#6c7484}
+code{background:#1c2026;padding:.1em .4em;border-radius:3px;font-size:.8rem}
+.chart{display:block;margin:.25rem 0 .5rem}
+.chart-legend{display:flex;flex-wrap:wrap;gap:.5rem 1rem;font-size:.75rem;color:#8a93a2;margin-top:.25rem}
+.chart-legend span{display:inline-flex;align-items:center;gap:.3rem}
+.chart-legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.scan-btn{background:#232831;color:#d6dde6;border:1px solid #2d333d;border-radius:4px;padding:.25rem .6rem;font-size:.8rem;cursor:pointer}
+.scan-btn:hover{background:#2d333d}
+.scan-status{font-size:.8rem;color:#8a93a2;margin-left:.5rem}
+.lbl{position:relative}
+.q{display:inline-block;margin-left:.35rem;width:.95rem;height:.95rem;line-height:.95rem;text-align:center;border-radius:50%;background:#232831;color:#8a93a2;font-size:.7rem;cursor:help;user-select:none;vertical-align:middle}
+.q:hover,.q:focus{background:#2d333d;color:#d6dde6;outline:none}
+.q-pop{display:none;position:absolute;z-index:20;top:1.4rem;left:0;min-width:200px;max-width:280px;padding:.5rem .6rem;background:#1c2026;border:1px solid #2d333d;border-radius:4px;color:#d6dde6;font-size:.75rem;font-weight:400;line-height:1.4;letter-spacing:0;text-transform:none;box-shadow:0 4px 12px rgba(0,0,0,.4);white-space:normal}
+.q-pop.show{display:block}
+.chart{cursor:crosshair}
+.chart-tip{display:none;position:fixed;z-index:30;min-width:200px;max-width:280px;padding:.5rem .6rem;background:#1c2026;border:1px solid #2d333d;border-radius:4px;color:#d6dde6;font-size:.75rem;line-height:1.4;letter-spacing:0;text-transform:none;box-shadow:0 6px 18px rgba(0,0,0,.5);white-space:normal;pointer-events:none}
+.chart-tip.show{display:block}
+.chart-tip-t{color:#8a93a2;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.15rem}
+.chart-tip-total{font-size:1rem;font-variant-numeric:tabular-nums;margin-bottom:.15rem}
+.chart-tip-d{font-size:.7rem;margin-bottom:.25rem}
+.chart-tip-list{border-top:1px solid #2d333d;padding-top:.3rem;margin-top:.15rem;display:flex;flex-direction:column;gap:.15rem}
+.chart-tip-row{display:flex;justify-content:space-between;gap:.5rem}
+.chart-tip-l{color:#d6dde6}
+.chart-tip-s{color:#8a93a2;font-variant-numeric:tabular-nums}
+.chart-snap{stroke-dasharray:3 3}
+</style>
+</head><body><div class="wrap">
+<nav class="nav">
+<a href="/" {{if eq .NavActive "overview"}}class="active"{{end}}>{{t .Lang "nav_overview"}}</a>
+<a href="/tools" {{if eq .NavActive "tools"}}class="active"{{end}}>{{t .Lang "nav_tools"}}</a>
+<span class="lang-switch">
+<a href="#" onclick="setLang('en');return false;" {{if eq .Lang "en"}}class="active"{{end}}>EN</a>
+<a href="#" onclick="setLang('zh');return false;" {{if eq .Lang "zh"}}class="active"{{end}}>中</a>
+</span>
+</nav>
+<h1>{{t .Lang "page_title"}}</h1>
+<div class="meta">{{t .Lang "meta_overview" (len .Summary.ToolTotals) .Count (since .Lang .Snap.StartedAt)}}</div>
+
+<div class="grid">
+<div class="tile">
+<div class="lbl">{{t .Lang "tile_total"}}<span class="q" tabindex="0" aria-label="?">?</span><span class="q-pop" role="tooltip">{{t .Lang "tip_total"}}</span></div>
+<div class="val">{{bytes .Summary.Total}}</div>
+</div>
+{{range .Summary.RiskTotals}}
+<div class="tile">
+<div class="lbl risk-{{.Risk}}">{{t $.Lang (printf "risk_%s" .Risk)}}<span class="q" tabindex="0" aria-label="?">?</span><span class="q-pop" role="tooltip">{{t $.Lang (printf "tip_risk_%s" .Risk)}}</span></div>
+<div class="val">{{bytes .Size}}</div>
+</div>
+{{end}}
+</div>
+
+{{with .Deltas}}
+<h2>{{t $.Lang "since_last_scan"}}</h2>
+<div class="card">
+{{if gt .total 0}}<span class="delta-up">+{{bytes .total}}</span>{{else if lt .total 0}}<span class="delta-down">{{bytes .total}}</span>{{else}}<span class="meta">{{t $.Lang "no_change"}}</span>{{end}}
+</div>
+{{end}}
+
+<h2>{{t .Lang "trend"}} <button class="scan-btn" id="scan-btn">{{t .Lang "scan_now"}}</button><span class="scan-status" id="scan-status"></span></h2>
+<div class="card">
+{{sparkline .Lang .History .Labels}}
+</div>
+
+<h2>{{t .Lang "by_tool"}}</h2>
+<div class="card">
+<table>
+<thead><tr><th>{{t .Lang "th_tool"}}</th><th class="num">{{t .Lang "th_size"}}</th><th class="num">{{t .Lang "th_share"}}</th><th class="num">{{t .Lang "th_paths"}}</th></tr></thead>
+<tbody>
+{{range .Summary.ToolTotals}}
+<tr>
+  <td><a href="/tool/{{.ToolID}}">{{.ToolLabel}}</a></td>
+  <td class="num">{{bytes .Size}}</td>
+  <td class="num share-cell"><span class="share-val">{{pct .Size $.Summary.Total}}%</span><div class="bar"><span style="width:{{pct .Size $.Summary.Total}}%"></span></div></td>
+  <td class="num">{{.Count}}</td>
+</tr>
+{{end}}
+</tbody></table>
+</div>
+
+<h2>{{t .Lang "by_category"}}</h2>
+<div class="card">
+<table>
+<thead><tr><th>{{t .Lang "th_category"}}</th><th class="num">{{t .Lang "th_size"}}</th></tr></thead>
+<tbody>
+{{range .Summary.CategoryTotals}}
+<tr>
+  <td>{{t $.Lang (printf "cat_%s" .Category)}}</td>
+  <td class="num share-cell"><span class="share-val">{{bytes .Size}}</span><div class="bar"><span style="width:{{pct .Size $.Summary.Total}}%"></span></div></td>
+</tr>
+{{end}}
+</tbody></table>
+</div>
+
+<h2>{{t .Lang "recent_snapshots"}}</h2>
+<div class="card">
+<table>
+<thead><tr><th>{{t .Lang "th_id"}}</th><th>{{t .Lang "th_started"}}</th><th class="num">{{t .Lang "th_total"}}</th><th class="num">{{t .Lang "th_delta"}}</th><th class="num">{{t .Lang "th_entries"}}</th></tr></thead>
+<tbody>
+{{range $i, $s := .SnapList}}
+<tr>
+<td><code>{{.ID}}</code></td>
+<td>{{since $.Lang .StartedAt}}</td>
+<td class="num">{{bytes (index $.History.Points $i).Total}}</td>
+<td class="num">
+{{if eq $i 0}}<span class="meta">—</span>
+{{else}}{{$prev := index $.History.Points (subIdx $i 1)}}{{$cur := index $.History.Points $i}}{{$d := sub $cur.Total $prev.Total}}{{if gt $d 0}}<span class="delta-up">+{{bytes $d}}</span>{{else if lt $d 0}}<span class="delta-down">{{bytes $d}}</span>{{else}}<span class="meta">0</span>{{end}}{{end}}
+</td>
+<td class="num">{{len .Entries}}</td>
+</tr>
+{{end}}
+</tbody></table>
+</div>
+
+<script>
+(function(){
+var b=document.getElementById('scan-btn'),s=document.getElementById('scan-status');
+if(!b)return;
+b.addEventListener('click',function(){
+b.disabled=true;s.textContent='{{t .Lang "scan_scanning"}}';
+fetch('/api/scan',{method:'POST'}).then(function(r){
+if(r.ok){s.textContent='{{t .Lang "scan_done"}}';setTimeout(function(){location.reload()},600);}
+else{s.textContent='{{t .Lang "scan_err"}} '+r.status;b.disabled=false;}
+}).catch(function(e){s.textContent='{{t .Lang "scan_net_err"}}';b.disabled=false;});
+});
+window.setLang=function(l){document.cookie='aisweep_lang='+l+';path=/;max-age=31536000';location.reload();};
+document.querySelectorAll('.q').forEach(function(el){
+el.addEventListener('click',function(e){e.stopPropagation();var pop=el.nextElementSibling;var wasOpen=pop.classList.contains('show');document.querySelectorAll('.q-pop.show').forEach(function(p){p.classList.remove('show');});if(!wasOpen)pop.classList.add('show');});
+});
+document.addEventListener('click',function(){document.querySelectorAll('.q-pop.show').forEach(function(p){p.classList.remove('show');});});
+(function(){
+var svg=document.querySelector('.chart');
+if(!svg)return;
+var tip=document.createElement('div');tip.className='chart-tip';document.body.appendChild(tip);
+function esc(s){return (s||'').replace(/[&<"'>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function ensureSnap(){var l=svg.querySelector('.chart-snap');if(l)return l;l=document.createElementNS('http://www.w3.org/2000/svg','line');l.setAttribute('class','chart-snap');l.setAttribute('y1','0');var vb=(svg.getAttribute('viewBox')||'0 0 1 1').split(' ');l.setAttribute('y2',vb[3]||'180');l.setAttribute('stroke','#8a93a2');l.setAttribute('stroke-width','1');l.style.display='none';svg.appendChild(l);return l;}
+function show(r){var t=r.getAttribute('data-t')||'',tot=r.getAttribute('data-total')||'',d=r.getAttribute('data-delta')||'',det=r.getAttribute('data-detail')||'';var rows=det.split('|').filter(Boolean).map(function(p){var i=p.indexOf(':');return '<div class="chart-tip-row"><span class="chart-tip-l">'+esc(i>=0?p.slice(0,i):p)+'</span><span class="chart-tip-s">'+esc(i>=0?p.slice(i+1):'')+'</span></div>';}).join('');var dCls='',dTxt=esc(d);if(d&&d.charAt(0)==='+')dCls='delta-up';else if(d&&d.charAt(0)==='-')dCls='delta-down';var dHtml=(d&&d!=='—')?'<div class="chart-tip-d '+dCls+'">'+dTxt+'</div>':'';tip.innerHTML='<div class="chart-tip-t">'+esc(t)+'</div><div class="chart-tip-total">'+esc(tot)+'</div>'+dHtml+(rows?'<div class="chart-tip-list">'+rows+'</div>':'');var rb=r.getBoundingClientRect(),tb=tip.getBoundingClientRect();var left=rb.left+rb.width/2-tb.width/2;var y2=rb.top-tb.height-8;if(y2<4)y2=rb.bottom+8;if(left<4)left=4;if(left+tb.width>window.innerWidth-4)left=window.innerWidth-tb.width-4;tip.style.left=left+'px';tip.style.top=y2+'px';tip.classList.add('show');var ln=ensureSnap();var cx=parseFloat(r.getAttribute('x'))+parseFloat(r.getAttribute('width'))/2;ln.setAttribute('x1',cx);ln.setAttribute('x2',cx);ln.style.display='';}
+function hide(){tip.classList.remove('show');var l=svg.querySelector('.chart-snap');if(l)l.style.display='none';}
+svg.addEventListener('mousemove',function(e){var hits=svg.querySelectorAll('.chart-hit');if(!hits.length)return;var ctm=svg.getScreenCTM();if(!ctm)return;var pt=svg.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;var loc=pt.matrixTransform(ctm.inverse());var best=null,bd=Infinity;hits.forEach(function(r){var cx=parseFloat(r.getAttribute('x'))+parseFloat(r.getAttribute('width'))/2;var d=Math.abs(loc.x-cx);if(d<bd){bd=d;best=r;}});if(best)show(best);});
+svg.addEventListener('mouseleave',hide);
+})();
+})();
+</script>
+
+</div></body></html>

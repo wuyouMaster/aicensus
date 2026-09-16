@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>{{t .Lang "page_tool_title" .ToolLabel}}</title>
+<style>
+body{font:14px -apple-system,BlinkMacSystemFont,sans-serif;margin:0;color:#d6dde6;background:#0f1115}
+.wrap{max-width:1080px;margin:0 auto;padding:1.5rem}
+.nav{display:flex;gap:.25rem;align-items:center;margin-bottom:1rem;font-size:.85rem;flex-wrap:wrap}
+.nav a{color:#8a93a2;text-decoration:none;padding:.2rem .6rem;border-radius:4px}
+.nav a:hover{color:#d6dde6;background:#1c2026}
+.nav a.active{color:#d6dde6;background:#232831}
+.lang-switch{margin-left:auto;display:flex;gap:.25rem;font-size:.75rem}
+.lang-switch a{padding:.2rem .5rem}
+.lang-switch a.active{color:#d6dde6;background:#232831}
+h1{font-weight:500;font-size:1.4rem;margin:0}
+.meta{color:#8a93a2;font-size:.85rem;margin-bottom:1rem}
+a{color:#7cc4ff;text-decoration:none}a:hover{text-decoration:underline}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:.4rem .5rem;border-bottom:1px solid #232831;font-size:.85rem}
+th{color:#8a93a2;font-weight:500;text-transform:uppercase;font-size:.7rem;letter-spacing:.05em}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.path{font-family:ui-monospace,Menlo,monospace;font-size:.8rem;color:#a0aab8}
+.note{color:#8a93a2;font-size:.8rem;margin-top:.2rem}
+.risk-safe{color:#4ade80}.risk-archive{color:#f5c451}.risk-manual{color:#f97373}.risk-never{color:#6c7484}
+.card{background:#161a21;border:1px solid #232831;border-radius:6px;padding:.75rem 1rem;margin-bottom:.5rem}
+details{margin-top:.25rem}
+summary{cursor:pointer;color:#8a93a2}
+code{background:#1c2026;padding:.1em .4em;border-radius:3px;font-size:.8rem}
+</style>
+</head><body><div class="wrap">
+<nav class="nav">
+<a href="/" {{if eq .NavActive "overview"}}class="active"{{end}}>{{t .Lang "nav_overview"}}</a>
+<a href="/tools" {{if or (eq .NavActive "tools") (eq .NavActive "tool")}}class="active"{{end}}>{{t .Lang "nav_tools"}}</a>
+<span class="lang-switch">
+<a href="#" onclick="setLang('en');return false;" {{if eq .Lang "en"}}class="active"{{end}}>EN</a>
+<a href="#" onclick="setLang('zh');return false;" {{if eq .Lang "zh"}}class="active"{{end}}>中</a>
+</span>
+</nav>
+<h1>{{.ToolLabel}}</h1>
+<div class="meta">{{t .Lang "meta_tool" .ToolID (since .Lang .Snap.StartedAt)}}</div>
+
+<div class="card">
+<table>
+<thead><tr><th>{{t .Lang "th_paths"}}</th><th>{{t .Lang "th_category"}}</th><th>{{t .Lang "th_risk"}}</th><th>{{t .Lang "th_size"}}</th><th>{{t .Lang "th_files"}}</th><th>{{t .Lang "th_top_subs"}}</th></tr></thead>
+<tbody>
+{{range .Entries}}
+<tr>
+  <td><div class="path">{{shortPath .Path}}</div>{{if .Note}}<div class="note">{{.Note}}</div>{{end}}</td>
+  <td>{{t $.Lang (printf "cat_%s" .Category)}}</td>
+  <td class="risk-{{.Risk}}">{{t $.Lang (printf "risk_%s" .Risk)}}</td>
+  <td class="num">{{bytes .SizeBytes}}</td>
+  <td class="num">{{.FileCount}}</td>
+  <td>
+    {{if .TopSubs}}<details><summary>{{t $.Lang "th_top_subs"}} ({{len .TopSubs}})</summary>
+    <table>
+    {{range .TopSubs}}<tr><td class="path">{{shortPath .Path}}</td><td class="num">{{bytes .Size}}</td></tr>{{end}}
+    </table></details>{{end}}
+  </td>
+</tr>
+{{end}}
+</tbody></table>
+</div>
+
+<script>
+window.setLang=function(l){document.cookie='aisweep_lang='+l+';path=/;max-age=31536000';location.reload();};
+</script>
+
+</div></body></html>
