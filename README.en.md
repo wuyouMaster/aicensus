@@ -62,6 +62,20 @@ aisweep serve --scan=false            # skip the initial scan
 
 Override the snapshot directory with `AISWEEP_DATA=/path/to/snapshots`.
 
+## Publishing a release
+
+Push a version tag beginning with `v` to GitHub. Actions will run the tests and
+static checks on all three desktop platforms, build amd64 and arm64 packages
+for macOS, Linux, and Windows, and create a GitHub Release automatically.
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Each release contains platform archives and a `sha256sums.txt` checksum file.
+Rerunning the workflow for the same tag updates attachments with the same names.
+
 ## Platforms and builds
 
 The scanner resolves platform-specific paths at runtime. GitHub Actions runs

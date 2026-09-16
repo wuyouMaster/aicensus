@@ -2,6 +2,10 @@ name: CI
 
 on:
   push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
   pull_request:
 
 permissions:
@@ -69,16 +73,65 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build binary
+      - name: Build release package
         env:
           CGO_ENABLED: 0
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-        run: go build -trimpath -ldflags="-s -w" -o "aicensus-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}" ./cmd/aisweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_root="aicensus-${{ matrix.goos }}-${{ matrix.goarch }}"
+          mkdir -p "package/${package_root}"
+          go build -trimpath -ldflags="-s -w" \
+            -o "package/${package_root}/aisweep${{ matrix.suffix }}" \
+            ./cmd/aisweep
+          cp README.md README.en.md "package/${package_root}/"
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            (cd package && zip -qr "../${package_root}.zip" "${package_root}")
+          else
+            tar -czf "${package_root}.tar.gz" -C package "${package_root}"
+          fi
 
-      - name: Upload binary
+      - name: Upload release package
         uses: actions/upload-artifact@v4
         with:
-          name: aicensus-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: aicensus-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: aicensus-${{ matrix.goos }}-${{ matrix.goarch }}.*
           if-no-files-found: error
+
+  release:
+    name: release (${{ github.ref_name }})
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - test
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download release packages
+        uses: actions/download-artifact@v5
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        working-directory: dist
+        run: sha256sum ./* > sha256sums.txt
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/* \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "AICensus $GITHUB_REF_NAME" \
+              --generate-notes
+          fi

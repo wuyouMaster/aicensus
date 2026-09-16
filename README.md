@@ -67,6 +67,19 @@ aisweep serve --scan=false            # 启动时跳过首次扫描
 AISWEEP_DATA=/path/to/snapshots aisweep serve
 ```
 
+## 发布版本
+
+向 GitHub 推送 `v` 开头的版本 tag 后，Actions 会先运行三平台测试和静态检查，
+再自动构建 macOS、Linux、Windows 的 amd64 和 arm64 安装包，并创建对应的 GitHub Release。
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Release 会包含各平台压缩包和 `sha256sums.txt` 校验文件。重复运行同一个 tag 的 workflow
+会更新已有 Release 中同名的附件。
+
 ## 支持的平台
 
 源码扫描器会根据当前平台解析路径：
