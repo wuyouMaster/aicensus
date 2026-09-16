@@ -1,11 +1,17 @@
 # AICensus
 
-Local-first storage inventory and trend monitoring for AI tools.
+### AI tools can keep coming. Someone still has to clean up after them.
 
-AI CLIs and desktop apps keep sessions, snapshots, caches, logs, models, and
-configuration in different directories. AICensus scans those locations in
-read-only mode, groups the results by tool and category, and shows how storage
-changes over time in a local browser dashboard.
+AI tools show up every day like roommates who never quite move out: they leave
+caches, sessions, snapshots, logs, models, and configuration all over your
+drive. The leftovers quietly pile up until your disk is full and you still do
+not know who made the mess.
+
+AICensus finds that mess, groups it by tool, category, and risk, and records
+how it changes by day or hour. You can see what is taking space, who owns it,
+and what is growing fastest before deciding what to clean up.
+
+> AI tools keep moving in. AICensus keeps the receipts.
 
 > The executable is still named `aisweep` for compatibility with existing commands, environment variables, and snapshots.
 
