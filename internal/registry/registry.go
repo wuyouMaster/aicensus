@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
+	"github.com/uwa/aisweep/internal/platform"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,11 +22,20 @@ type Entry struct {
 // the path and doctor commands; scanning uses ToolScanner.Discover so a tool
 // can resolve paths dynamically when needed.
 type Tool struct {
-	ID         string  `yaml:"id"`
-	Label      string  `yaml:"label"`
-	Homepage   string  `yaml:"homepage,omitempty"`
-	Paths      []Entry `yaml:"paths,omitempty"`
-	MacOSPaths []Entry `yaml:"macos_paths,omitempty"`
+	ID            string             `yaml:"id"`
+	Label         string             `yaml:"label"`
+	Homepage      string             `yaml:"homepage,omitempty"`
+	Paths         []Entry            `yaml:"paths,omitempty"`
+	MacOSPaths    []Entry            `yaml:"macos_paths,omitempty"`
+	PlatformPaths map[string][]Entry `yaml:"platform_paths,omitempty"`
+}
+
+// PlatformContext is exported through registry so scanner contributors do not
+// need to know where the shared platform path implementation lives.
+type PlatformContext = platform.Context
+
+func CurrentPlatformContext() (PlatformContext, error) {
+	return platform.Current()
 }
 
 // ToolScanner is the extension point for AI-tool-specific path discovery.
@@ -65,10 +74,16 @@ func (r *Registry) Scanners() []ToolScanner {
 }
 
 func (t Tool) AllPaths() []Entry {
-	if runtime.GOOS == "darwin" {
-		return append(append([]Entry{}, t.Paths...), t.MacOSPaths...)
+	return t.AllPathsFor(runtime.GOOS)
+}
+
+func (t Tool) AllPathsFor(goos string) []Entry {
+	paths := append([]Entry{}, t.Paths...)
+	if goos == "darwin" && len(t.PlatformPaths["darwin"]) == 0 {
+		paths = append(paths, t.MacOSPaths...)
 	}
-	return t.Paths
+	paths = append(paths, t.PlatformPaths[goos]...)
+	return paths
 }
 
 // Load builds the registry from Go implementations and then applies the
@@ -107,6 +122,7 @@ func Load() (*Registry, error) {
 		}
 		resolved.Paths = entries
 		resolved.MacOSPaths = nil
+		resolved.PlatformPaths = nil
 		reg.Tools = append(reg.Tools, resolved)
 		reg.scanners = append(reg.scanners, resolvedScanner)
 		seen[base.ID] = true
@@ -127,6 +143,7 @@ func Load() (*Registry, error) {
 			}
 			t.Paths = entries
 			t.MacOSPaths = nil
+			t.PlatformPaths = nil
 			reg.Tools = append(reg.Tools, t)
 			reg.scanners = append(reg.scanners, source)
 		}
@@ -159,6 +176,20 @@ func mergeTool(base, override Tool) Tool {
 	}
 	if len(override.MacOSPaths) > 0 {
 		base.MacOSPaths = override.MacOSPaths
+		if base.PlatformPaths != nil {
+			delete(base.PlatformPaths, "darwin")
+		}
+	}
+	if len(override.PlatformPaths) > 0 {
+		if base.PlatformPaths == nil {
+			base.PlatformPaths = map[string][]Entry{}
+		}
+		for goos, entries := range override.PlatformPaths {
+			base.PlatformPaths[goos] = entries
+			if goos == "darwin" {
+				base.MacOSPaths = nil
+			}
+		}
 	}
 	if override.Label != "" {
 		base.Label = override.Label
@@ -170,7 +201,7 @@ func mergeTool(base, override Tool) Tool {
 }
 
 func hasPathOverride(t Tool) bool {
-	return len(t.Paths) > 0 || len(t.MacOSPaths) > 0
+	return len(t.Paths) > 0 || len(t.MacOSPaths) > 0 || len(t.PlatformPaths) > 0
 }
 
 type delegatedScanner struct {
@@ -195,9 +226,13 @@ func (s staticScanner) Discover() ([]Entry, error) {
 }
 
 func expandList(es []Entry) []Entry {
+	ctx, err := platform.Current()
+	if err != nil {
+		return nil
+	}
 	out := make([]Entry, 0, len(es))
 	for _, e := range es {
-		e.Path = expand(e.Path)
+		e.Path = platform.ExpandPath(e.Path, ctx)
 		if e.Path == "" {
 			continue
 		}
@@ -207,28 +242,25 @@ func expandList(es []Entry) []Entry {
 }
 
 func expand(p string) string {
-	p = strings.TrimSpace(p)
-	if p == "" {
+	ctx, err := platform.Current()
+	if err != nil {
 		return ""
 	}
-	if strings.HasPrefix(p, "~") {
-		home, _ := os.UserHomeDir()
-		if strings.HasPrefix(p, "~/") {
-			p = filepath.Join(home, p[2:])
-		} else if p == "~" {
-			p = home
-		}
-	}
-	return filepath.Clean(p)
+	return platform.ExpandPath(p, ctx)
 }
 
 func UserOverridePath() (string, error) {
 	if p := os.Getenv("AISWEEP_REGISTRY"); p != "" {
 		return p, nil
 	}
-	home, err := os.UserHomeDir()
+	ctx, err := platform.Current()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".config", "aisweep", "registry.yaml"), nil
+	base := ctx.ConfigDir
+	if ctx.GOOS == "darwin" {
+		// Preserve the pre-platform-support macOS override location.
+		base = filepath.Join(ctx.HomeDir, ".config")
+	}
+	return filepath.Join(base, "aisweep", "registry.yaml"), nil
 }

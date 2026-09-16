@@ -9,8 +9,16 @@ func (antigravityScanner) Definition() Tool {
 		Paths: []Entry{
 			{Path: "~/.gemini/antigravity", Category: "cache", Risk: "safe"},
 		},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/Antigravity", Category: "cache", Risk: "safe"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/Antigravity", Category: "cache", Risk: "safe"},
+			},
+			"windows": {
+				{Path: "{config}/Antigravity", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/Antigravity", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

@@ -14,8 +14,18 @@ func (codexCLIScanner) Definition() Tool {
 			{Path: "~/.codex/thread_history_1.sqlite", Category: "sessions", Risk: "manual", Note: "thread history SQLite"},
 			{Path: "~/.codex/logs_2.sqlite", Category: "logs", Risk: "archive"},
 		},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/Codex", Category: "cache", Risk: "safe"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/Codex", Category: "cache", Risk: "safe"},
+			},
+			"windows": {
+				{Path: "{config}/Codex", Category: "cache", Risk: "safe"},
+				{Path: "{cache}/Codex", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/Codex", Category: "cache", Risk: "safe"},
+				{Path: "{cache}/Codex", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

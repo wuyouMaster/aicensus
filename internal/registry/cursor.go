@@ -13,11 +13,23 @@ func (cursorScanner) Definition() Tool {
 			{Path: "~/.cursor/ai-tracking", Category: "logs", Risk: "manual"},
 			{Path: "~/.cursor/worktrees", Category: "cache", Risk: "safe"},
 		},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/Cursor", Category: "cache", Risk: "safe"},
-			{Path: "~/Library/Application Support/Cursor/snapshots", Category: "snapshots", Risk: "manual", Note: "time-travel snapshots"},
-			{Path: "~/Library/Application Support/Cursor/logs", Category: "logs", Risk: "safe"},
-			{Path: "~/Library/Caches/Cursor", Category: "cache", Risk: "safe"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/Cursor", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Cursor/snapshots", Category: "snapshots", Risk: "manual", Note: "time-travel snapshots"},
+				{Path: "{config}/Cursor/logs", Category: "logs", Risk: "safe"},
+				{Path: "{cache}/Cursor", Category: "cache", Risk: "safe"},
+			},
+			"windows": {
+				{Path: "{config}/Cursor", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Cursor/logs", Category: "logs", Risk: "safe"},
+				{Path: "{cache}/Cursor", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/Cursor", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Cursor/logs", Category: "logs", Risk: "safe"},
+				{Path: "{cache}/Cursor", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

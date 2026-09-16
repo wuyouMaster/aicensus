@@ -10,9 +10,21 @@ func (windsurfScanner) Definition() Tool {
 			{Path: "~/.windsurf", Category: "cache", Risk: "safe"},
 			{Path: "~/.windsurf/extensions", Category: "cache", Risk: "safe"},
 		},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/Windsurf", Category: "cache", Risk: "safe"},
-			{Path: "~/Library/Caches/Windsurf", Category: "cache", Risk: "safe"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/Windsurf", Category: "cache", Risk: "safe"},
+				{Path: "{cache}/Windsurf", Category: "cache", Risk: "safe"},
+			},
+			"windows": {
+				{Path: "{config}/Windsurf", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Windsurf/logs", Category: "logs", Risk: "archive"},
+				{Path: "{cache}/Windsurf", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/Windsurf", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Windsurf/logs", Category: "logs", Risk: "archive"},
+				{Path: "{cache}/Windsurf", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

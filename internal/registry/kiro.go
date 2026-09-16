@@ -9,11 +9,11 @@ type kiroScanner struct{}
 
 func (kiroScanner) Definition() Tool {
 	return Tool{
-		ID:         "kiro",
-		Label:      "Kiro",
-		Homepage:   "https://kiro.dev",
-		Paths:      kiroUserEntries("~/.kiro"),
-		MacOSPaths: kiroMacEntries(),
+		ID:            "kiro",
+		Label:         "Kiro",
+		Homepage:      "https://kiro.dev",
+		Paths:         kiroUserEntries("~/.kiro"),
+		PlatformPaths: kiroPlatformEntries(),
 	}
 }
 
@@ -42,8 +42,16 @@ func kiroUserEntries(root string) []Entry {
 	}
 }
 
-func kiroMacEntries() []Entry {
-	return []Entry{
-		{Path: "~/Library/Application Support/kiro-cli/knowledge_bases", Category: "cache", Risk: "safe", Note: "local code knowledge indexes"},
+func kiroPlatformEntries() map[string][]Entry {
+	return map[string][]Entry{
+		"darwin": {
+			{Path: "{config}/kiro-cli/knowledge_bases", Category: "cache", Risk: "safe", Note: "local code knowledge indexes"},
+		},
+		"windows": {
+			{Path: "{config}/kiro-cli/knowledge_bases", Category: "cache", Risk: "safe", Note: "local code knowledge indexes"},
+		},
+		"linux": {
+			{Path: "{config}/kiro-cli/knowledge_bases", Category: "cache", Risk: "safe", Note: "local code knowledge indexes"},
+		},
 	}
 }

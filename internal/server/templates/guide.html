@@ -3,7 +3,7 @@
 <style>
 :root{--text:#1c1c1e;--muted:#636368;--accent:#007aff;--accent2:#5856d6;--risk-safe:#34c759;--risk-archive:#ff9500;--risk-manual:#ff3b30;--risk-never:#8e8e93}
 *{box-sizing:border-box}
-body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;margin:0;color:var(--text);min-height:100vh;background:radial-gradient(at 20% 10%,#d6e0ff 0%,transparent 55%),radial-gradient(at 80% 25%,#f5d6f0 0%,transparent 55%),radial-gradient(at 50% 85%,#d6f0ff 0%,transparent 55%),linear-gradient(135deg,#f5f7fa 0%,#e8eaf0 100%);background-attachment:fixed;-webkit-font-smoothing:antialiased}
+body{font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;margin:0;color:var(--text);min-height:100vh;background:radial-gradient(at 20% 10%,#d6e0ff 0%,transparent 55%),radial-gradient(at 80% 25%,#f5d6f0 0%,transparent 55%),radial-gradient(at 50% 85%,#d6f0ff 0%,transparent 55%),linear-gradient(135deg,#f5f7fa 0%,#e8eaf0 100%);background-attachment:scroll;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1080px;margin:0 auto;padding:1.75rem 1.5rem}
 .nav{display:flex;gap:1rem;align-items:center;margin-bottom:1.5rem;font-size:.85rem;flex-wrap:wrap}
 .view-switch{display:inline-flex;align-items:center;gap:.15rem;padding:.18rem;background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.68);border-radius:999px;box-shadow:0 2px 10px rgba(60,80,120,.08);-webkit-backdrop-filter:blur(16px) saturate(170%);backdrop-filter:blur(16px) saturate(170%)}
@@ -20,8 +20,8 @@ h1{font-weight:600;font-size:2rem;line-height:1.12;letter-spacing:-.02em;margin:
 .meta{display:block;color:var(--muted);font-size:.9rem;line-height:1.55;margin-bottom:1.4rem;max-width:760px}
 .guide-back{display:inline-block;margin-top:-.6rem;margin-bottom:1.1rem;color:var(--accent);font-size:.8rem;text-decoration:none}
 .guide-back:hover{text-decoration:underline}
-.guide-tools{display:grid;gap:1rem}
-.guide-tool{padding:1.25rem 1.35rem;background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border:1px solid rgba(255,255,255,.6);border-radius:18px;box-shadow:0 4px 24px rgba(60,80,120,.08),0 1px 2px rgba(60,80,120,.04)}
+.guide-tools{display:grid;gap:1rem;contain:layout}
+.guide-tool{padding:1.25rem 1.35rem;background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border:1px solid rgba(255,255,255,.6);border-radius:18px;box-shadow:0 4px 24px rgba(60,80,120,.08),0 1px 2px rgba(60,80,120,.04);contain:layout paint}
 .guide-tool-head{display:flex;align-items:center;gap:.7rem;margin-bottom:.95rem}
 .tool-title{display:flex;align-items:center;gap:.65rem;min-width:0}
 .tool-icon{display:grid;place-items:center;flex:0 0 2rem;width:2rem;height:2rem;border-radius:11px;background:rgba(0,122,255,.1);border:1px solid rgba(0,122,255,.16);color:var(--accent);box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
@@ -55,6 +55,7 @@ h1{font-weight:600;font-size:2rem;line-height:1.12;letter-spacing:-.02em;margin:
 .guide-copy-block p{margin:0;color:var(--muted);font-size:.79rem;line-height:1.5}
 .guide-note{margin:.7rem 0 0;padding:.55rem .7rem;border-left:2px solid rgba(0,122,255,.35);color:var(--muted);font-size:.76rem;line-height:1.45}
 code{font-family:ui-monospace,Menlo,monospace;background:rgba(60,80,120,.08);padding:.1em .35em;border-radius:4px}
+body.is-scrolling .guide-tool{background:rgba(255,255,255,.72);-webkit-backdrop-filter:none;backdrop-filter:none}
 @media(max-width:680px){.wrap{padding:1.25rem 1rem}.guide-copy{grid-template-columns:1fr}.tool-id{display:none}}
 </style>
 </head><body><div class="wrap">
@@ -110,5 +111,11 @@ code{font-family:ui-monospace,Menlo,monospace;background:rgba(60,80,120,.08);pad
 
 <script>
 window.setLang=function(l){document.cookie='aisweep_lang='+l+';path=/;max-age=31536000';location.reload();};
+let scrollEndTimer;
+window.addEventListener('scroll',function(){
+  document.body.classList.add('is-scrolling');
+  clearTimeout(scrollEndTimer);
+  scrollEndTimer=setTimeout(function(){document.body.classList.remove('is-scrolling');},140);
+},{passive:true});
 </script>
 </div></body></html>

@@ -11,9 +11,21 @@ func (traeScanner) Definition() Tool {
 			{Path: "~/.trae", Category: "cache", Risk: "safe"},
 			{Path: "~/.trae/extensions", Category: "cache", Risk: "safe"},
 		},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/Trae", Category: "cache", Risk: "safe"},
-			{Path: "~/Library/Application Support/Trae/logs", Category: "logs", Risk: "archive"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/Trae", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Trae/logs", Category: "logs", Risk: "archive"},
+			},
+			"windows": {
+				{Path: "{config}/Trae", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Trae/logs", Category: "logs", Risk: "archive"},
+				{Path: "{cache}/Trae", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/Trae", Category: "cache", Risk: "safe"},
+				{Path: "{config}/Trae/logs", Category: "logs", Risk: "archive"},
+				{Path: "{cache}/Trae", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

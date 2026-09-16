@@ -6,8 +6,16 @@ func (chatGPTDesktopScanner) Definition() Tool {
 	return Tool{
 		ID:    "chatgpt-desktop",
 		Label: "ChatGPT Desktop",
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/com.openai.chat", Category: "cache", Risk: "safe"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/com.openai.chat", Category: "cache", Risk: "safe"},
+			},
+			"windows": {
+				{Path: "{config}/com.openai.chat", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/com.openai.chat", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

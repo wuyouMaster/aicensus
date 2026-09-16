@@ -6,8 +6,16 @@ func (llmScanner) Definition() Tool {
 	return Tool{
 		ID:    "llm",
 		Label: "Simon Willison llm",
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/io.datasette.llm", Category: "cache", Risk: "manual"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/io.datasette.llm", Category: "cache", Risk: "manual"},
+			},
+			"windows": {
+				{Path: "{config}/io.datasette.llm", Category: "cache", Risk: "manual"},
+			},
+			"linux": {
+				{Path: "{config}/io.datasette.llm", Category: "cache", Risk: "manual"},
+			},
 		},
 	}
 }

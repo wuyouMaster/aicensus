@@ -9,11 +9,21 @@ type copilotCLIScanner struct{}
 
 func (copilotCLIScanner) Definition() Tool {
 	return Tool{
-		ID:         "copilot-cli",
-		Label:      "GitHub Copilot CLI",
-		Homepage:   "https://github.com/github/copilot-cli",
-		Paths:      copilotEntries("~/.copilot"),
-		MacOSPaths: []Entry{{Path: "~/Library/Caches/copilot", Category: "cache", Risk: "safe", Note: "marketplace and auto-update cache"}},
+		ID:       "copilot-cli",
+		Label:    "GitHub Copilot CLI",
+		Homepage: "https://github.com/github/copilot-cli",
+		Paths:    copilotEntries("~/.copilot"),
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{cache}/copilot", Category: "cache", Risk: "safe", Note: "marketplace and auto-update cache"},
+			},
+			"windows": {
+				{Path: "{cache}/copilot", Category: "cache", Risk: "safe", Note: "marketplace and auto-update cache"},
+			},
+			"linux": {
+				{Path: "{cache}/copilot", Category: "cache", Risk: "safe", Note: "marketplace and auto-update cache"},
+			},
+		},
 	}
 }
 

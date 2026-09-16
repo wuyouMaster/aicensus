@@ -159,3 +159,46 @@ func TestScanHidesParentCoveredByNestedEntries(t *testing.T) {
 		t.Fatalf("got %q, want nested path %q", snap.Entries[0].Path, nestedDir)
 	}
 }
+
+func TestPathKeyNormalizesWindowsCase(t *testing.T) {
+	upper := pathKeyFor(filepath.Join(string(filepath.Separator)+"Users", "Test", "AppData"), "windows")
+	lower := pathKeyFor(filepath.Join(string(filepath.Separator)+"users", "test", "appdata"), "windows")
+	if upper != lower {
+		t.Fatalf("Windows path keys differ: %q vs %q", upper, lower)
+	}
+}
+
+func TestScanAggregatesRelativeDirectoryPaths(t *testing.T) {
+	base := t.TempDir()
+	root := filepath.Join(base, "storage")
+	if err := os.Mkdir(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "state.db"), []byte("state"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	oldWorkingDir, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(base); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(oldWorkingDir) })
+
+	reg := registry.New(testScanner{
+		tool:    registry.Tool{ID: "relative-tool", Label: "Relative Tool"},
+		entries: []registry.Entry{{Path: "storage", Category: "cache", Risk: "safe"}},
+	})
+	snap, err := Scan(reg, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snap.Entries) != 1 {
+		t.Fatalf("got %d snapshot entries, want 1", len(snap.Entries))
+	}
+	if got := snap.Entries[0]; got.SizeBytes != 5 || got.FileCount != 1 || got.Path != "storage" {
+		t.Fatalf("got relative entry %#v, want storage with 5 bytes and 1 file", got)
+	}
+}

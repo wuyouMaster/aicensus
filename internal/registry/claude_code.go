@@ -13,9 +13,19 @@ func (claudeCodeScanner) Definition() Tool {
 			{Path: "~/.claude/transcripts", Category: "transcripts", Risk: "archive"},
 			{Path: "~/.claude.json", Category: "config", Risk: "never", Note: "main config"},
 		},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/Claude", Category: "cache", Risk: "safe"},
-			{Path: "~/Library/Caches/Claude", Category: "cache", Risk: "safe"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/Claude", Category: "cache", Risk: "safe"},
+				{Path: "{cache}/Claude", Category: "cache", Risk: "safe"},
+			},
+			"windows": {
+				{Path: "{config}/Claude", Category: "cache", Risk: "safe"},
+				{Path: "{cache}/Claude", Category: "cache", Risk: "safe"},
+			},
+			"linux": {
+				{Path: "{config}/Claude", Category: "cache", Risk: "safe"},
+				{Path: "{cache}/Claude", Category: "cache", Risk: "safe"},
+			},
 		},
 	}
 }

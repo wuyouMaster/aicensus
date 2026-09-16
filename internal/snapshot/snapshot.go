@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/uwa/aisweep/internal/platform"
 )
 
 type Subdir struct {
@@ -145,11 +147,11 @@ func dataDir() (string, error) {
 	if p := os.Getenv("AISWEEP_DATA"); p != "" {
 		return p, nil
 	}
-	home, err := os.UserHomeDir()
+	ctx, err := platform.Current()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "share", "aisweep", "snapshots"), nil
+	return filepath.Join(ctx.DataDir, "aisweep", "snapshots"), nil
 }
 
 func Summarize(s *Snapshot) Summary {

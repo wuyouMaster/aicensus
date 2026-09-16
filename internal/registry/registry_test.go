@@ -92,6 +92,35 @@ func TestLoadAppliesUserPathOverride(t *testing.T) {
 	t.Fatal("codex-cli scanner was not loaded")
 }
 
+func TestAllPathsForSelectsPlatformSpecificPaths(t *testing.T) {
+	tool := Tool{
+		Paths:      []Entry{{Path: "{home}/common"}},
+		MacOSPaths: []Entry{{Path: "{home}/legacy-mac"}},
+		PlatformPaths: map[string][]Entry{
+			"darwin":  {{Path: "{config}/mac"}},
+			"windows": {{Path: "{config}/windows"}},
+			"linux":   {{Path: "{config}/linux"}},
+		},
+	}
+
+	for goos, want := range map[string]string{
+		"darwin":  "{config}/mac",
+		"windows": "{config}/windows",
+		"linux":   "{config}/linux",
+	} {
+		paths := tool.AllPathsFor(goos)
+		if len(paths) != 2 || paths[1].Path != want {
+			t.Fatalf("%s paths = %#v, want common plus %q", goos, paths, want)
+		}
+	}
+
+	legacy := Tool{Paths: tool.Paths, MacOSPaths: tool.MacOSPaths}
+	paths := legacy.AllPathsFor("darwin")
+	if len(paths) != 2 || paths[1].Path != "{home}/legacy-mac" {
+		t.Fatalf("legacy macOS paths = %#v", paths)
+	}
+}
+
 func TestDynamicScannersHonorHomeOverrides(t *testing.T) {
 	tests := []struct {
 		name    string

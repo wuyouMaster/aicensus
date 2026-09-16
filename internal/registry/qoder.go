@@ -9,11 +9,11 @@ type qoderScanner struct{}
 
 func (qoderScanner) Definition() Tool {
 	return Tool{
-		ID:         "qoder",
-		Label:      "Qoder",
-		Homepage:   "https://qoder.com",
-		Paths:      qoderUserEntries("~/.qoder"),
-		MacOSPaths: qoderMacEntries(),
+		ID:            "qoder",
+		Label:         "Qoder",
+		Homepage:      "https://qoder.com",
+		Paths:         qoderUserEntries("~/.qoder"),
+		PlatformPaths: qoderPlatformEntries(),
 	}
 }
 
@@ -44,17 +44,25 @@ func qoderUserEntries(root string) []Entry {
 	}
 }
 
-func qoderMacEntries() []Entry {
+func qoderPlatformEntries() map[string][]Entry {
+	return map[string][]Entry{
+		"darwin":  qoderAppEntries("{config}"),
+		"windows": qoderAppEntries("{config}"),
+		"linux":   qoderAppEntries("{config}"),
+	}
+}
+
+func qoderAppEntries(root string) []Entry {
 	return []Entry{
-		{Path: "~/Library/Application Support/Qoder", Category: "cache", Risk: "manual", Note: "Qoder IDE application data"},
-		{Path: "~/Library/Application Support/Qoder/logs", Category: "logs", Risk: "archive"},
-		{Path: "~/Library/Application Support/Qoder/SharedClientCache", Category: "cache", Risk: "manual", Note: "workspace indexes and local runtime state"},
-		{Path: "~/Library/Application Support/Qoder/SharedClientCache/logs", Category: "logs", Risk: "archive"},
-		{Path: "~/Library/Application Support/Qoder/User/workspaceStorage", Category: "sessions", Risk: "archive"},
-		{Path: "~/Library/Application Support/QoderCN", Category: "cache", Risk: "manual", Note: "Qoder China edition application data"},
-		{Path: "~/Library/Application Support/QoderCN/logs", Category: "logs", Risk: "archive"},
-		{Path: "~/Library/Application Support/QoderCN/SharedClientCache", Category: "cache", Risk: "manual", Note: "workspace indexes and local runtime state"},
-		{Path: "~/Library/Application Support/QoderCN/SharedClientCache/logs", Category: "logs", Risk: "archive"},
-		{Path: "~/Library/Application Support/QoderCN/User/workspaceStorage", Category: "sessions", Risk: "archive"},
+		{Path: root + "/Qoder", Category: "cache", Risk: "manual", Note: "Qoder IDE application data"},
+		{Path: root + "/Qoder/logs", Category: "logs", Risk: "archive"},
+		{Path: root + "/Qoder/SharedClientCache", Category: "cache", Risk: "manual", Note: "workspace indexes and local runtime state"},
+		{Path: root + "/Qoder/SharedClientCache/logs", Category: "logs", Risk: "archive"},
+		{Path: root + "/Qoder/User/workspaceStorage", Category: "sessions", Risk: "archive"},
+		{Path: root + "/QoderCN", Category: "cache", Risk: "manual", Note: "Qoder China edition application data"},
+		{Path: root + "/QoderCN/logs", Category: "logs", Risk: "archive"},
+		{Path: root + "/QoderCN/SharedClientCache", Category: "cache", Risk: "manual", Note: "workspace indexes and local runtime state"},
+		{Path: root + "/QoderCN/SharedClientCache/logs", Category: "logs", Risk: "archive"},
+		{Path: root + "/QoderCN/User/workspaceStorage", Category: "sessions", Risk: "archive"},
 	}
 }

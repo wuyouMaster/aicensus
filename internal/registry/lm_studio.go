@@ -7,9 +7,19 @@ func (lmStudioScanner) Definition() Tool {
 		ID:    "lm-studio",
 		Label: "LM Studio",
 		Paths: []Entry{{Path: "~/.lmstudio", Category: "models", Risk: "manual", Note: "delegate to LM Studio UI"}},
-		MacOSPaths: []Entry{
-			{Path: "~/Library/Application Support/lm-studio", Category: "models", Risk: "manual"},
-			{Path: "~/Library/Application Support/LM Studio", Category: "models", Risk: "manual"},
+		PlatformPaths: map[string][]Entry{
+			"darwin": {
+				{Path: "{config}/lm-studio", Category: "models", Risk: "manual"},
+				{Path: "{config}/LM Studio", Category: "models", Risk: "manual"},
+			},
+			"windows": {
+				{Path: "{config}/lm-studio", Category: "models", Risk: "manual"},
+				{Path: "{config}/LM Studio", Category: "models", Risk: "manual"},
+			},
+			"linux": {
+				{Path: "{config}/lm-studio", Category: "models", Risk: "manual"},
+				{Path: "{config}/LM Studio", Category: "models", Risk: "manual"},
+			},
 		},
 	}
 }

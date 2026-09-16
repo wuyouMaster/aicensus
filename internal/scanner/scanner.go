@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func Scan(reg *registry.Registry, progress io.Writer) (*snapshot.Snapshot, error
 		}
 		for _, e := range entries {
 			if e.Path != "" {
-				skip[filepath.Clean(e.Path)] = true
+				skip[pathKey(e.Path)] = true
 			}
 		}
 		resolved = append(resolved, resolvedTool{tool: t, entries: entries})
@@ -142,27 +143,29 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 		return res
 	}
 
-	rootKey := filepath.Clean(e.Path)
+	rootKey := pathKey(e.Path)
 	hasChildPath := hasNestedPath(rootKey, skip)
 	agg := map[string]*dirAgg{rootKey: {}}
+	displayPaths := map[string]string{rootKey: filepath.Clean(e.Path)}
 	_ = filepath.WalkDir(e.Path, func(p string, d os.DirEntry, werr error) error {
 		if werr != nil {
 			return nil
 		}
+		key := pathKey(p)
 		// A separately registered path owns its complete subtree. Skip both
 		// nested directories and nested files so parent and child entries never
 		// count the same bytes twice.
-		if p != e.Path && skip[filepath.Clean(p)] {
+		if key != rootKey && skip[key] {
 			if d.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
 		if d.IsDir() {
-			key := filepath.Clean(p)
 			if _, ok := agg[key]; !ok {
 				agg[key] = &dirAgg{}
 			}
+			displayPaths[key] = filepath.Clean(p)
 			return nil
 		}
 		if d.Type()&os.ModeSymlink != 0 {
@@ -172,11 +175,12 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 		if ferr != nil {
 			return nil
 		}
-		parent := filepath.Clean(filepath.Dir(p))
+		parent := pathKey(filepath.Dir(p))
 		a, ok := agg[parent]
 		if !ok {
 			a = &dirAgg{}
 			agg[parent] = a
+			displayPaths[parent] = filepath.Clean(filepath.Dir(p))
 		}
 		a.size += fi.Size()
 		a.files++
@@ -228,7 +232,7 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 	for p := range agg {
 		totals := recursive[p]
 		if filepath.Dir(p) == rootKey && p != rootKey && totals.size > 0 {
-			subs = append(subs, subdirInfo{Path: p, Size: totals.size, Files: totals.files})
+			subs = append(subs, subdirInfo{Path: displayPaths[p], Size: totals.size, Files: totals.files})
 		}
 	}
 	sort.Slice(subs, func(i, j int) bool { return subs[i].Size > subs[j].Size })
@@ -240,7 +244,9 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 }
 
 func hasNestedPath(root string, paths map[string]bool) bool {
+	root = pathKey(root)
 	for candidate := range paths {
+		candidate = pathKey(candidate)
 		if candidate == root {
 			continue
 		}
@@ -251,6 +257,21 @@ func hasNestedPath(root string, paths map[string]bool) bool {
 		return true
 	}
 	return false
+}
+
+func pathKey(path string) string {
+	return pathKeyFor(path, runtime.GOOS)
+}
+
+func pathKeyFor(path, goos string) string {
+	if absolute, err := filepath.Abs(path); err == nil {
+		path = absolute
+	}
+	path = filepath.Clean(path)
+	if goos == "windows" {
+		return strings.ToLower(path)
+	}
+	return path
 }
 
 func shortPath(p string) string {
