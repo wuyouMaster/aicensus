@@ -413,17 +413,7 @@ func toolIcon(id, label string) template.HTML {
 // values on hover. Returns template.HTML so the rendered SVG is injected
 // verbatim.
 func axisTick(v int64) string {
-	const k = int64(1024)
-	switch {
-	case v >= k*k*k:
-		return fmt.Sprintf("%.0f GB", float64(v)/float64(k*k*k))
-	case v >= k*k:
-		return fmt.Sprintf("%.0f MB", float64(v)/float64(k*k))
-	case v >= k:
-		return fmt.Sprintf("%.0f KB", float64(v)/float64(k))
-	default:
-		return fmt.Sprintf("%d B", v)
-	}
+	return snapshot.FormatBytesCompact(v)
 }
 
 func sparkline(lang, gran string, h snapshot.History, labels map[string]string) template.HTML {

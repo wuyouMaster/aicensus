@@ -63,8 +63,8 @@ type RiskTotal struct {
 type HistoryPoint struct {
 	ID        string           `json:"id"`
 	StartedAt time.Time        `json:"started_at"`
-	Total int64                `json:"total"`
-	ByTool map[string]int64    `json:"by_tool"`
+	Total     int64            `json:"total"`
+	ByTool    map[string]int64 `json:"by_tool"`
 }
 
 type History struct {
@@ -75,13 +75,13 @@ type History struct {
 // ToolCard is one row on the /tools list page: aggregated view of a single
 // tool across all of its paths in one snapshot.
 type ToolCard struct {
-	ToolID            string           `json:"tool_id"`
-	ToolLabel         string           `json:"tool_label"`
-	Size              int64            `json:"size"`
-	Count             int              `json:"count"`
-	LatestMTime       time.Time        `json:"latest_mtime"`
-	CategoryBreakdown []CategoryTotal  `json:"category_breakdown"`
-	RiskBreakdown     []RiskTotal      `json:"risk_breakdown"`
+	ToolID            string          `json:"tool_id"`
+	ToolLabel         string          `json:"tool_label"`
+	Size              int64           `json:"size"`
+	Count             int             `json:"count"`
+	LatestMTime       time.Time       `json:"latest_mtime"`
+	CategoryBreakdown []CategoryTotal `json:"category_breakdown"`
+	RiskBreakdown     []RiskTotal     `json:"risk_breakdown"`
 }
 
 func Write(s *Snapshot) error {
@@ -303,15 +303,33 @@ func BuildToolCards(s *Snapshot) []ToolCard {
 }
 
 func FormatBytes(n int64) string {
-	const k = 1024
-	if n < k {
-		return fmt.Sprintf("%d B", n)
+	return formatBytes(n, 2)
+}
+
+// FormatBytesCompact formats a size with adaptive units and no decimal places.
+// It is intended for compact labels such as chart axes.
+func FormatBytesCompact(n int64) string {
+	return formatBytes(n, 0)
+}
+
+func formatBytes(n int64, decimals int) string {
+	const base = 1024.0
+	units := [...]string{"B", "KB", "MB", "GB", "TB", "PB", "EB"}
+
+	value := float64(n)
+	sign := ""
+	if value < 0 {
+		sign = "-"
+		value = -value
 	}
-	if n < k*k {
-		return fmt.Sprintf("%.2f KB", float64(n)/k)
+
+	unit := 0
+	for value >= base && unit < len(units)-1 {
+		value /= base
+		unit++
 	}
-	if n < k*k*k {
-		return fmt.Sprintf("%.2f MB", float64(n)/(k*k))
+	if unit == 0 {
+		return fmt.Sprintf("%s%.0f B", sign, value)
 	}
-	return fmt.Sprintf("%.2f GB", float64(n)/(k*k*k))
+	return fmt.Sprintf("%s%.*f %s", sign, decimals, value, units[unit])
 }
