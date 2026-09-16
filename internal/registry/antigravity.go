@@ -7,7 +7,6 @@ func (antigravityScanner) Definition() Tool {
 		ID:    "antigravity",
 		Label: "Antigravity",
 		Paths: []Entry{
-			{Path: "~/.gemini", Category: "cache", Risk: "safe"},
 			{Path: "~/.gemini/antigravity", Category: "cache", Risk: "safe"},
 		},
 		MacOSPaths: []Entry{

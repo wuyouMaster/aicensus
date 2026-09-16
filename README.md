@@ -68,6 +68,14 @@ pointing `AISWEEP_REGISTRY` at a file of the same shape.
 Each path declares a `category` (cache, snapshots, sessions, logs, transcripts,
 models, config, auth, unknown) and a `risk` (safe, archive, manual, never).
 
+The built-in registry currently covers Claude Code, Codex CLI, Qoder, Kiro,
+Cline, Gemini CLI, Cursor, Windsurf, TRAE, Antigravity, GitHub Copilot CLI,
+Hugging Face, Continue, llm, OpenAI Desktop, ChatGPT Desktop, LM Studio,
+Ollama, and WorkBuddy. Qoder, Kiro, Cline, Gemini CLI, and Copilot CLI honor
+their documented home-directory environment variables when present. WorkBuddy
+uses discovered macOS application and log locations because its official help
+flow does not publish one stable absolute path.
+
 Override paths are merged on top of the builtin (matched by tool `id`); only
 non-empty fields win. New tool ids are appended.
 

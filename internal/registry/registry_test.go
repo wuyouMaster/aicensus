@@ -91,3 +91,60 @@ func TestLoadAppliesUserPathOverride(t *testing.T) {
 	}
 	t.Fatal("codex-cli scanner was not loaded")
 }
+
+func TestDynamicScannersHonorHomeOverrides(t *testing.T) {
+	tests := []struct {
+		name    string
+		scanner ToolScanner
+		env     string
+		root    string
+	}{
+		{name: "qoder", scanner: qoderScanner{}, env: "QODER_CONFIG_DIR", root: filepath.Join(t.TempDir(), "qoder")},
+		{name: "kiro", scanner: kiroScanner{}, env: "KIRO_HOME", root: filepath.Join(t.TempDir(), "kiro")},
+		{name: "cline", scanner: clineScanner{}, env: "CLINE_DATA_DIR", root: filepath.Join(t.TempDir(), "cline")},
+		{name: "copilot", scanner: copilotCLIScanner{}, env: "COPILOT_HOME", root: filepath.Join(t.TempDir(), "copilot")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv(tt.env, tt.root)
+			entries, err := tt.scanner.Discover()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(entries) == 0 || entries[0].Path != tt.root {
+				t.Fatalf("got first path %#v, want %q", entries, tt.root)
+			}
+		})
+	}
+}
+
+func TestGeminiCLIDiscoverRequiresGeminiSpecificPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("GEMINI_CLI_HOME", home)
+	scanner := geminiCLIScanner{}
+
+	entries, err := scanner.Discover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("got paths before a Gemini marker exists: %#v", entries)
+	}
+
+	root := filepath.Join(home, ".gemini")
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "settings.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	entries, err = scanner.Discover()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) == 0 || entries[0].Path != root {
+		t.Fatalf("got paths %#v, want expanded Gemini root %q", entries, root)
+	}
+}

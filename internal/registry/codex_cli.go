@@ -16,7 +16,6 @@ func (codexCLIScanner) Definition() Tool {
 		},
 		MacOSPaths: []Entry{
 			{Path: "~/Library/Application Support/Codex", Category: "cache", Risk: "safe"},
-			{Path: "~/Library/Application Support/com.openai.chat", Category: "cache", Risk: "safe"},
 		},
 	}
 }

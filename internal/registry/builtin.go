@@ -6,6 +6,10 @@ func BuiltinScanners() []ToolScanner {
 	return []ToolScanner{
 		claudeCodeScanner{},
 		codexCLIScanner{},
+		qoderScanner{},
+		kiroScanner{},
+		clineScanner{},
+		geminiCLIScanner{},
 		cursorScanner{},
 		windsurfScanner{},
 		traeScanner{},
@@ -18,6 +22,7 @@ func BuiltinScanners() []ToolScanner {
 		chatGPTDesktopScanner{},
 		lmStudioScanner{},
 		ollamaScanner{},
+		workBuddyScanner{},
 	}
 }
 
