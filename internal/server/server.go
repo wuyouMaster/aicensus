@@ -45,6 +45,11 @@ func Serve(host string, port int, scanFn func() error) error {
 		fmt.Printf("WARNING: aisweep bound to %s (not loopback)\n", addr)
 	}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/favicon.svg", embeddedAsset("templates/favicon.svg", "image/svg+xml"))
+	mux.HandleFunc("/apple-touch-icon.png", embeddedAsset("templates/apple-touch-icon.png", "image/png"))
+	mux.HandleFunc("/icon-192.png", embeddedAsset("templates/icon-192.png", "image/png"))
+	mux.HandleFunc("/icon-512.png", embeddedAsset("templates/icon-512.png", "image/png"))
+	mux.HandleFunc("/manifest.webmanifest", embeddedAsset("templates/manifest.webmanifest", "application/manifest+json"))
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/tools", handleTools)
 	mux.HandleFunc("/guide", handleGuide)
@@ -65,6 +70,26 @@ func Serve(host string, port int, scanFn func() error) error {
 	}
 	fmt.Printf("aisweep dashboard: http://%s\n", addr)
 	return http.Serve(ln, mux)
+}
+
+func embeddedAsset(name, contentType string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.Error(w, "GET only", http.StatusMethodNotAllowed)
+			return
+		}
+		data, err := templatesFS.ReadFile(name)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=86400")
+		if r.Method == http.MethodHead {
+			return
+		}
+		_, _ = w.Write(data)
+	}
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
