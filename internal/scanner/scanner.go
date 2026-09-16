@@ -36,29 +36,42 @@ type pathResult struct {
 	TopSubs   []subdirInfo
 }
 
+type resolvedTool struct {
+	tool    registry.Tool
+	entries []registry.Entry
+}
+
 func Scan(reg *registry.Registry, progress io.Writer) (*snapshot.Snapshot, error) {
 	startedAt := time.Now()
 	host, _ := os.Hostname()
 
 	skip := map[string]bool{}
-	for _, t := range reg.Tools {
-		for _, e := range t.AllPaths() {
+	sources := reg.Scanners()
+	resolved := make([]resolvedTool, 0, len(sources))
+	for _, source := range sources {
+		t := source.Definition()
+		entries, err := source.Discover()
+		if err != nil {
+			return nil, fmt.Errorf("discover %s: %w", t.ID, err)
+		}
+		for _, e := range entries {
 			if e.Path != "" {
-				skip[e.Path] = true
+				skip[filepath.Clean(e.Path)] = true
 			}
 		}
+		resolved = append(resolved, resolvedTool{tool: t, entries: entries})
 	}
 
 	var results []pathResult
-	for _, t := range reg.Tools {
-		for _, e := range t.AllPaths() {
+	for _, item := range resolved {
+		for _, e := range item.entries {
 			if e.Path == "" {
 				continue
 			}
 			if progress != nil {
 				fmt.Fprintf(progress, "scan %s ... ", shortPath(e.Path))
 			}
-			r := scanPath(t.ID, t.Label, e, skip)
+			r := scanPath(item.tool.ID, item.tool.Label, e, skip)
 			if progress != nil {
 				if r.Found {
 					fmt.Fprintf(progress, "%s\n", snapshot.FormatBytes(r.Size))

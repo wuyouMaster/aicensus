@@ -1,7 +1,6 @@
 package registry
 
 import (
-	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,9 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-//go:embed registry.yaml
-var builtinYAML []byte
-
+// Entry describes one storage location and its cleanup classification.
 type Entry struct {
 	Path     string `yaml:"path"`
 	Category string `yaml:"category"`
@@ -21,6 +18,9 @@ type Entry struct {
 	Note     string `yaml:"note,omitempty"`
 }
 
+// Tool is the user-facing metadata for one AI tool. Paths are kept here for
+// the path and doctor commands; scanning uses ToolScanner.Discover so a tool
+// can resolve paths dynamically when needed.
 type Tool struct {
 	ID         string  `yaml:"id"`
 	Label      string  `yaml:"label"`
@@ -29,8 +29,39 @@ type Tool struct {
 	MacOSPaths []Entry `yaml:"macos_paths,omitempty"`
 }
 
+// ToolScanner is the extension point for AI-tool-specific path discovery.
+// Implementations should keep tool-specific knowledge here and leave
+// filesystem traversal and aggregation to internal/scanner.
+type ToolScanner interface {
+	Definition() Tool
+	Discover() ([]Entry, error)
+}
+
 type Registry struct {
-	Tools []Tool `yaml:"tools"`
+	Tools    []Tool `yaml:"tools"`
+	scanners []ToolScanner
+}
+
+// New creates a registry from scanner implementations. It is useful for
+// embedding aisweep or testing a scanner without loading user configuration.
+func New(scanners ...ToolScanner) *Registry {
+	reg := &Registry{scanners: append([]ToolScanner(nil), scanners...)}
+	for _, scanner := range scanners {
+		reg.Tools = append(reg.Tools, scanner.Definition())
+	}
+	return reg
+}
+
+// Scanners returns the resolved scanners used by the generic scan pipeline.
+func (r *Registry) Scanners() []ToolScanner {
+	if len(r.scanners) == 0 {
+		out := make([]ToolScanner, 0, len(r.Tools))
+		for _, tool := range r.Tools {
+			out = append(out, staticScanner{tool: tool})
+		}
+		return out
+	}
+	return append([]ToolScanner(nil), r.scanners...)
 }
 
 func (t Tool) AllPaths() []Entry {
@@ -40,56 +71,127 @@ func (t Tool) AllPaths() []Entry {
 	return t.Paths
 }
 
+// Load builds the registry from Go implementations and then applies the
+// optional user YAML override. Built-in tool definitions therefore live next
+// to their discovery implementations, while local path customization remains
+// possible without rebuilding the binary.
 func Load() (*Registry, error) {
-	reg := &Registry{}
-	if err := yaml.Unmarshal(builtinYAML, reg); err != nil {
-		return nil, fmt.Errorf("parse builtin registry: %w", err)
+	override, err := loadOverride()
+	if err != nil {
+		return nil, err
 	}
-	if up, err := UserOverridePath(); err == nil {
-		if data, err := os.ReadFile(up); err == nil {
-			over := &Registry{}
-			if err := yaml.Unmarshal(data, over); err != nil {
-				return nil, fmt.Errorf("parse user registry %s: %w", up, err)
-			}
-			reg.merge(over)
+	overrides := map[string]Tool{}
+	if override != nil {
+		for _, t := range override.Tools {
+			overrides[t.ID] = t
 		}
 	}
-	reg.expandPaths()
+
+	reg := &Registry{}
+	seen := map[string]bool{}
+	for _, source := range BuiltinScanners() {
+		base := source.Definition()
+		over, hasOverride := overrides[base.ID]
+		resolved := base
+		if hasOverride {
+			resolved = mergeTool(base, over)
+		}
+
+		var resolvedScanner ToolScanner = delegatedScanner{source: source, tool: resolved}
+		if hasOverride && hasPathOverride(over) {
+			resolvedScanner = staticScanner{tool: resolved}
+		}
+		entries, err := resolvedScanner.Discover()
+		if err != nil {
+			return nil, fmt.Errorf("discover %s: %w", base.ID, err)
+		}
+		resolved.Paths = entries
+		resolved.MacOSPaths = nil
+		reg.Tools = append(reg.Tools, resolved)
+		reg.scanners = append(reg.scanners, resolvedScanner)
+		seen[base.ID] = true
+	}
+
+	// A user override may also introduce a completely new tool. It uses the
+	// same static scanner contract and can later be moved into its own Go
+	// implementation through a normal pull request.
+	if override != nil {
+		for _, t := range override.Tools {
+			if seen[t.ID] {
+				continue
+			}
+			source := staticScanner{tool: t}
+			entries, err := source.Discover()
+			if err != nil {
+				return nil, fmt.Errorf("discover %s: %w", t.ID, err)
+			}
+			t.Paths = entries
+			t.MacOSPaths = nil
+			reg.Tools = append(reg.Tools, t)
+			reg.scanners = append(reg.scanners, source)
+		}
+	}
 	return reg, nil
 }
 
-func (r *Registry) merge(o *Registry) {
-	idx := map[string]int{}
-	for i, t := range r.Tools {
-		idx[t.ID] = i
+func loadOverride() (*Registry, error) {
+	path, err := UserOverridePath()
+	if err != nil {
+		return nil, nil
 	}
-	for _, t := range o.Tools {
-		i, ok := idx[t.ID]
-		if !ok {
-			r.Tools = append(r.Tools, t)
-			continue
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
 		}
-		if len(t.Paths) > 0 {
-			r.Tools[i].Paths = t.Paths
-		}
-		if len(t.MacOSPaths) > 0 {
-			r.Tools[i].MacOSPaths = t.MacOSPaths
-		}
-		if t.Label != "" {
-			r.Tools[i].Label = t.Label
-		}
-		if t.Homepage != "" {
-			r.Tools[i].Homepage = t.Homepage
-		}
+		return nil, fmt.Errorf("read user registry %s: %w", path, err)
 	}
+	override := &Registry{}
+	if err := yaml.Unmarshal(data, override); err != nil {
+		return nil, fmt.Errorf("parse user registry %s: %w", path, err)
+	}
+	return override, nil
 }
 
-func (r *Registry) expandPaths() {
-	for i := range r.Tools {
-		t := &r.Tools[i]
-		t.Paths = expandList(t.Paths)
-		t.MacOSPaths = expandList(t.MacOSPaths)
+func mergeTool(base, override Tool) Tool {
+	if len(override.Paths) > 0 {
+		base.Paths = override.Paths
 	}
+	if len(override.MacOSPaths) > 0 {
+		base.MacOSPaths = override.MacOSPaths
+	}
+	if override.Label != "" {
+		base.Label = override.Label
+	}
+	if override.Homepage != "" {
+		base.Homepage = override.Homepage
+	}
+	return base
+}
+
+func hasPathOverride(t Tool) bool {
+	return len(t.Paths) > 0 || len(t.MacOSPaths) > 0
+}
+
+type delegatedScanner struct {
+	source ToolScanner
+	tool   Tool
+}
+
+func (s delegatedScanner) Definition() Tool { return s.tool }
+
+func (s delegatedScanner) Discover() ([]Entry, error) {
+	return s.source.Discover()
+}
+
+type staticScanner struct {
+	tool Tool
+}
+
+func (s staticScanner) Definition() Tool { return s.tool }
+
+func (s staticScanner) Discover() ([]Entry, error) {
+	return expandList(s.tool.AllPaths()), nil
 }
 
 func expandList(es []Entry) []Entry {

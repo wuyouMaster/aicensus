@@ -48,9 +48,22 @@ No external JS/CSS/font, single static HTML, dark theme.
 
 ## Registry
 
-Builtin: `internal/registry/registry.yaml`. 15 tools, ~40 paths, all observed
-on the author's machine. Override at `~/.config/aisweep/registry.yaml` or
-point `AISWEEP_REGISTRY` at a file of the same shape.
+Built-in scanners live in `internal/registry/`, with one implementation per
+AI tool. Each implementation satisfies `registry.ToolScanner`:
+
+- `Definition() registry.Tool` returns the tool metadata and default paths.
+- `Discover() ([]registry.Entry, error)` resolves the paths for the current
+  machine. A tool can use dynamic discovery here when its storage layout needs
+  more than a static list of paths.
+
+To add a tool, add a concrete scanner in `internal/registry/`, register it in
+`BuiltinScanners`, and add tests or documentation as needed. The generic
+filesystem traversal remains in `internal/scanner`, so tool-specific path
+knowledge stays isolated and new contributions do not require changes to the
+scan pipeline.
+
+Local paths can still be overridden at `~/.config/aisweep/registry.yaml` or by
+pointing `AISWEEP_REGISTRY` at a file of the same shape.
 
 Each path declares a `category` (cache, snapshots, sessions, logs, transcripts,
 models, config, auth, unknown) and a `risk` (safe, archive, manual, never).

@@ -1,17 +1,31 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>{{t .Lang "page_title"}}</title>
 <style>
-body{font:14px -apple-system,BlinkMacSystemFont,sans-serif;margin:2rem;color:#d6dde6;background:#0f1115}
-.container{max-width:720px;margin:0 auto}
-.nav{display:flex;gap:.25rem;align-items:center;margin-bottom:1rem;font-size:.85rem;flex-wrap:wrap}
-.nav a{color:#8a93a2;text-decoration:none;padding:.2rem .6rem;border-radius:4px}
-.nav a:hover{color:#d6dde6;background:#1c2026}
-.nav a.active{color:#d6dde6;background:#232831}
-.lang-switch{margin-left:auto;display:flex;gap:.25rem;font-size:.75rem}
-.lang-switch a{padding:.2rem .5rem}
-.lang-switch a.active{color:#d6dde6;background:#232831}
-h1{font-weight:500}
-code{background:#1c2026;padding:.1em .4em;border-radius:3px}
+:root{--text:#1c1c1e;--muted:#636368;--accent:#007aff;--accent2:#5856d6}
+*{box-sizing:border-box}
+body{
+  font:14px -apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  margin:0;color:var(--text);min-height:100vh;
+  background:
+    radial-gradient(at 20% 10%, #d6e0ff 0%, transparent 55%),
+    radial-gradient(at 80% 25%, #f5d6f0 0%, transparent 55%),
+    radial-gradient(at 50% 85%, #d6f0ff 0%, transparent 55%),
+    linear-gradient(135deg, #f5f7fa 0%, #e8eaf0 100%);
+  background-attachment:fixed;
+  -webkit-font-smoothing:antialiased;
+}
+.container{max-width:720px;margin:0 auto;padding:2rem 1.5rem}
+.nav{display:flex;gap:.25rem;align-items:center;margin-bottom:1.25rem;font-size:.85rem;flex-wrap:wrap}
+.nav a{color:var(--muted);text-decoration:none;padding:.4rem .85rem;border-radius:999px;transition:all .2s}
+.nav a:hover{background:rgba(255,255,255,.5);color:var(--text)}
+.nav a.active{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 2px 8px rgba(0,122,255,.3)}
+.lang-switch{margin-left:auto;display:flex;gap:.25rem;font-size:.75rem;background:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.55);border-radius:999px;padding:.15rem}
+.lang-switch a{padding:.25rem .7rem;border-radius:999px;color:var(--muted)}
+.lang-switch a:hover{color:var(--text)}
+.lang-switch a.active{color:var(--text);background:rgba(255,255,255,.85);box-shadow:0 1px 3px rgba(60,80,120,.1)}
+h1{font-weight:600;font-size:2rem;letter-spacing:-.02em;margin:0 0 .5rem;color:var(--text)}
+p{color:var(--muted);line-height:1.5}
+code{background:rgba(60,80,120,.08);padding:.1em .4em;border-radius:4px;font-size:.85em;color:var(--text)}
 </style>
 </head><body><div class="container">
 <nav class="nav">

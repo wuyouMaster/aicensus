@@ -10,6 +10,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/uwa/aisweep/internal/i18n"
 	"github.com/uwa/aisweep/internal/snapshot"
@@ -68,6 +69,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 	lang := detectLang(r)
 	setLangCookie(w, lang)
+	gran := detectGranularity(r)
 	snaps, err := snapshot.List()
 	if err != nil || len(snaps) == 0 {
 		_ = tpl.ExecuteTemplate(w, "empty.html", map[string]any{"NavActive": "overview", "Lang": lang})
@@ -96,6 +98,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		"Labels":    labels,
 		"NavActive": "overview",
 		"Lang":      lang,
+		"Gran":      gran,
 	}
 	_ = tpl.ExecuteTemplate(w, "overview.html", data)
 }
@@ -212,6 +215,18 @@ func setLangCookie(w http.ResponseWriter, lang string) {
 	})
 }
 
+func detectGranularity(r *http.Request) string {
+	if q := r.URL.Query().Get("gran"); q == "day" || q == "hour" {
+		return q
+	}
+	if c, err := r.Cookie("aisweep_gran"); err == nil {
+		if c.Value == "day" || c.Value == "hour" {
+			return c.Value
+		}
+	}
+	return "day"
+}
+
 func shortPath(p string) string {
 	home, _ := os.UserHomeDir()
 	if home != "" && strings.HasPrefix(p, home) {
@@ -220,187 +235,240 @@ func shortPath(p string) string {
 	return p
 }
 
-// sparkline renders an inline SVG line chart of total size across history
-// points, with stacked translucent areas for the top 5 tools (by latest size).
-// Each data point also gets an invisible hit-zone rect carrying data-* attrs
-// so the browser tooltip on the overview page can show the exact values on
-// hover. Returns template.HTML so the rendered SVG is injected verbatim.
-func sparkline(lang string, h snapshot.History, labels map[string]string) template.HTML {
+// sparkline renders an inline SVG bar chart of total size aggregated by the
+// selected time bucket, with stacked segments for the top 5 tools (by latest
+// size). Each bucket gets an invisible hit-zone rect carrying data-*
+// attrs so the browser tooltip on the overview page can show the exact
+// values on hover. Returns template.HTML so the rendered SVG is injected
+// verbatim.
+func axisTick(v int64) string {
+	const k = int64(1024)
+	switch {
+	case v >= k*k*k:
+		return fmt.Sprintf("%.0f GB", float64(v)/float64(k*k*k))
+	case v >= k*k:
+		return fmt.Sprintf("%.0f MB", float64(v)/float64(k*k))
+	case v >= k:
+		return fmt.Sprintf("%.0f KB", float64(v)/float64(k))
+	default:
+		return fmt.Sprintf("%d B", v)
+	}
+}
+
+func sparkline(lang, gran string, h snapshot.History, labels map[string]string) template.HTML {
 	if len(h.Points) < 2 {
 		return template.HTML(fmt.Sprintf(`<span class="meta">%s</span>`, bundle.T(lang, "chart_need_2")))
 	}
 	const (
-		viewW  = 720
-		viewH  = 180
-		padL   = 48
-		padR   = 8
-		padT   = 12
-		padB   = 24
+		viewW = 720
+		viewH = 200
+		padL  = 56
+		padR  = 8
+		padT  = 12
+		padB  = 28
 	)
-	n := len(h.Points)
-	plotW := float64(viewW - padL - padR)
-	plotH := float64(viewH - padT - padB)
-
-	type ts struct {
-		x    float64
-		y    float64
-		tot  float64
+	// Bucket points by the selected granularity. A storage trend is a point-in-
+	// time measurement, so the most recent snapshot in each bucket represents
+	// that bucket instead of summing repeated measurements.
+	type timeBucket struct {
+		date    time.Time
+		total   int64
+		byTool  map[string]int64
+		present bool
 	}
-	pts := make([]ts, n)
-	var maxTotal int64
+	bucketMap := map[string]timeBucket{}
+	bucketDuration := 24 * time.Hour
+	if gran == "hour" {
+		bucketDuration = time.Hour
+	}
 	for _, p := range h.Points {
-		if p.Total > maxTotal {
-			maxTotal = p.Total
+		d := p.StartedAt.Truncate(bucketDuration)
+		key := d.Format("2006-01-02 15:04")
+		byTool := make(map[string]int64, len(p.ByTool))
+		for tid, sz := range p.ByTool {
+			byTool[tid] = sz
+		}
+		if _, ok := bucketMap[key]; ok {
+			bucketMap[key] = timeBucket{date: d, total: p.Total, byTool: byTool, present: true}
+			continue
+		}
+		bucketMap[key] = timeBucket{date: d, total: p.Total, byTool: byTool, present: true}
+	}
+	if len(bucketMap) == 0 {
+		return template.HTML(fmt.Sprintf(`<span class="meta">%s</span>`, bundle.T(lang, "chart_empty")))
+	}
+	maxBuckets := 60
+	if gran == "hour" {
+		maxBuckets = 48
+	}
+	var first, last time.Time
+	for _, bucket := range bucketMap {
+		if first.IsZero() || bucket.date.Before(first) {
+			first = bucket.date
+		}
+		if last.IsZero() || bucket.date.After(last) {
+			last = bucket.date
+		}
+	}
+	span := int(last.Sub(first)/bucketDuration) + 1
+	if span > maxBuckets {
+		first = last.Add(-time.Duration(maxBuckets-1) * bucketDuration)
+		span = maxBuckets
+	}
+	buckets := make([]timeBucket, span)
+	for i := range buckets {
+		d := first.Add(time.Duration(i) * bucketDuration)
+		bucket := bucketMap[d.Format("2006-01-02 15:04")]
+		if !bucket.present {
+			bucket.date = d
+		}
+		buckets[i] = bucket
+	}
+	// Max total across buckets for the y-axis scale.
+	var maxTotal int64
+	for _, d := range buckets {
+		if d.present && d.total > maxTotal {
+			maxTotal = d.total
 		}
 	}
 	if maxTotal == 0 {
 		return template.HTML(fmt.Sprintf(`<span class="meta">%s</span>`, bundle.T(lang, "chart_empty")))
 	}
-	for i, p := range h.Points {
-		x := padL + float64(i)/float64(n-1)*plotW
-		y := padT + plotH - float64(p.Total)/float64(maxTotal)*plotH
-		pts[i] = ts{x: x, y: y, tot: float64(p.Total)}
-	}
 
-	// Pick top 5 tools by latest size for stacked areas.
+	// Pick top N tools by latest size for the stacked segments.
 	topN := 5
 	if len(h.ToolOrder) < topN {
 		topN = len(h.ToolOrder)
 	}
 	topTools := h.ToolOrder[:topN]
-	palette := []string{"#4f8cf7", "#7cc4ff", "#4ade80", "#f5c451", "#f97373"}
+	// A brighter Apple-inspired palette for the light Liquid Glass surface.
+	// The hues move from cool to warm so neighboring stacked segments transition
+	// smoothly instead of placing complementary colors side by side.
+	palette := []string{"#2f80ed", "#31a8c7", "#4db879", "#e9a23b", "#e87578"}
 
-	type layer struct {
-		id   string
-		col  string
-		poly string
+	n := len(buckets)
+	plotW := float64(viewW - padL - padR)
+	plotH := float64(viewH - padT - padB)
+	slotW := plotW / float64(n)
+	barW := slotW * 0.55
+	if barW > 56 {
+		barW = 56
 	}
-	layers := make([]layer, 0, topN)
-	for li, id := range topTools {
-		col := palette[li%len(palette)]
-		var path strings.Builder
-		// top edge: cumulative sum from bottom layer up
-		cumUp := make([]float64, n)
-		for k := 0; k <= li; k++ {
-			for j, p := range h.Points {
-				cumUp[j] += float64(p.ByTool[topTools[k]])
-			}
-		}
-		for j := 0; j < n; j++ {
-			x := padL + float64(j)/float64(n-1)*plotW
-			y := padT + plotH - cumUp[j]/float64(maxTotal)*plotH
-			if j == 0 {
-				path.WriteString(fmt.Sprintf("M%.2f,%.2f", x, y))
-			} else {
-				path.WriteString(fmt.Sprintf(" L%.2f,%.2f", x, y))
-			}
-		}
-		// close down to baseline
-		path.WriteString(fmt.Sprintf(" L%.2f,%.2f", padL+plotW, padT+plotH))
-		path.WriteString(fmt.Sprintf(" L%.2f,%.2f", float64(padL), padT+plotH))
-		path.WriteString(" Z")
-		layers = append(layers, layer{id: id, col: col, poly: path.String()})
-	}
-
-	var totalPath strings.Builder
-	for i, p := range pts {
-		if i == 0 {
-			totalPath.WriteString(fmt.Sprintf("M%.2f,%.2f", p.x, p.y))
-		} else {
-			totalPath.WriteString(fmt.Sprintf(" L%.2f,%.2f", p.x, p.y))
-		}
+	if barW < 6 {
+		barW = 6
 	}
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "<svg viewBox=\"0 0 %d %d\" width=\"100%%\" height=\"180\" preserveAspectRatio=\"none\" class=\"chart\">", viewW, viewH)
-	// y axis gridlines at 0/25/50/75/100% with byte labels
+	// Hover band rect — positioned by JS to the hovered slot's x.
+	fmt.Fprintf(&b, "<svg viewBox=\"0 0 %d %d\" width=\"100%%\" height=\"200\" preserveAspectRatio=\"none\" class=\"chart\">", viewW, viewH)
+	fmt.Fprintf(&b, "<rect class=\"chart-band\" x=\"%d\" y=\"0\" width=\"%.2f\" height=\"%d\" fill=\"rgba(0,122,255,0.07)\" style=\"display:none\"/>", padL, slotW, viewH)
+
+	// Y-axis dashed gridlines + size labels (0/25/50/75/100%).
 	for i := 0; i <= 4; i++ {
 		frac := float64(i) / 4.0
 		y := padT + plotH - frac*plotH
 		v := int64(float64(maxTotal) * frac)
-		fmt.Fprintf(&b, "<line x1=\"%d\" y1=\"%.2f\" x2=\"%d\" y2=\"%.2f\" stroke=\"#232831\" stroke-width=\"1\"/>", padL, y, int(padL+plotW), y)
-		fmt.Fprintf(&b, "<text x=\"%d\" y=\"%.2f\" fill=\"#8a93a2\" font-size=\"10\" text-anchor=\"end\" dominant-baseline=\"middle\">%s</text>", padL-6, y, snapshot.FormatBytes(v))
+		fmt.Fprintf(&b, "<line x1=\"%d\" y1=\"%.2f\" x2=\"%d\" y2=\"%.2f\" stroke=\"rgba(92,110,150,0.16)\" stroke-width=\"1\" stroke-dasharray=\"2 4\"/>", padL, y, int(padL+plotW), y)
+		fmt.Fprintf(&b, "<text x=\"%d\" y=\"%.2f\" fill=\"#9299ae\" font-size=\"10\" text-anchor=\"end\" dominant-baseline=\"middle\">%s</text>", padL-6, y, axisTick(v))
 	}
-	// tool stacked areas (bottom-up)
-	for _, l := range layers {
-		fmt.Fprintf(&b, "<path d=\"%s\" fill=\"%s\" fill-opacity=\"0.18\" stroke=\"%s\" stroke-width=\"0.5\"/>", l.poly, l.col, l.col)
+
+	// Decide which buckets show an x-axis label: first, last, middle, and
+	// ~evenly spaced in between for longer histories.
+	labelIdxs := map[int]bool{0: true, n - 1: true}
+	if n > 2 {
+		labelIdxs[n/2] = true
 	}
-	// total line (top, bold)
-	fmt.Fprintf(&b, "<path d=\"%s\" fill=\"none\" stroke=\"#d6dde6\" stroke-width=\"2\"/>", totalPath.String())
-	// point markers + x labels (first/middle/last)
-	pick := []int{0, n / 2, n - 1}
-	seen := map[int]bool{}
-	for _, idx := range pick {
-		if seen[idx] {
+	if n > 6 {
+		step := n / 5
+		if step < 1 {
+			step = 1
+		}
+		for i := 0; i < n; i += step {
+			labelIdxs[i] = true
+		}
+	}
+
+	var prevTotal int64
+	var havePrev bool
+	for i, d := range buckets {
+		slotX := padL + float64(i)*slotW
+		barX := slotX + (slotW-barW)/2
+
+		// Stacked segments from bottom layer up.
+		cum := int64(0)
+		for li, tid := range topTools {
+			sz := d.byTool[tid]
+			if sz <= 0 {
+				continue
+			}
+			segH := float64(sz) / float64(maxTotal) * plotH
+			segY := padT + plotH - float64(cum+sz)/float64(maxTotal)*plotH
+			col := palette[li%len(palette)]
+			fmt.Fprintf(&b, "<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\"/>", barX, segY, barW, segH, col)
+			cum += sz
+		}
+		if d.present && cum == 0 {
+			fmt.Fprintf(&b, "<rect x=\"%.2f\" y=\"%.2f\" width=\"%.2f\" height=\"2\" fill=\"rgba(92,110,150,0.16)\" rx=\"1\" ry=\"1\"/>", barX, padT+plotH-2, barW)
+		}
+
+		if labelIdxs[i] {
+			label := d.date.Format("01-02")
+			if gran == "hour" {
+				label = d.date.Format("15:04")
+			}
+			fmt.Fprintf(&b, "<text x=\"%.2f\" y=\"%d\" fill=\"#858ca1\" font-size=\"10\" text-anchor=\"middle\">%s</text>", slotX+slotW/2, int(padT+plotH+18), label)
+		}
+
+		if !d.present {
 			continue
 		}
-		seen[idx] = true
-		p := pts[idx]
-		fmt.Fprintf(&b, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"3\" fill=\"#d6dde6\"/>", p.x, p.y)
-		label := h.Points[idx].StartedAt.Format("01-02 15:04")
-		fmt.Fprintf(&b, "<text x=\"%.2f\" y=\"%d\" fill=\"#8a93a2\" font-size=\"10\" text-anchor=\"middle\">%s</text>", p.x, int(padT+plotH+14), label)
-	}
-	// invisible hit zones — one per data point — so the JS layer can show a
-	// tooltip for any point on hover. Each rect carries the per-point values
-	// in data-* attributes (HTML-escaped labels, pipe-separated details).
-	stepW := plotW / float64(n-1)
-	var prevTot int64
-	for i, p := range pts {
-		var hx, hw float64
-		switch i {
-		case 0:
-			hx = float64(padL)
-			hw = stepW / 2
-		case n - 1:
-			hx = float64(padL) + plotW - stepW/2
-			hw = stepW / 2
-		default:
-			hx = p.x - stepW/2
-			hw = stepW
-		}
+
+		// Hit zone for tooltip (covers full slot width/height).
 		var parts []string
-		for _, id := range topTools {
-			label := labels[id]
-			if label == "" {
-				label = id
+		for _, tid := range topTools {
+			sz := d.byTool[tid]
+			if sz == 0 {
+				continue
 			}
-			sz := h.Points[i].ByTool[id]
-			parts = append(parts, html.EscapeString(label)+":"+snapshot.FormatBytes(sz))
+			lbl := labels[tid]
+			if lbl == "" {
+				lbl = tid
+			}
+			parts = append(parts, html.EscapeString(lbl)+":"+snapshot.FormatBytes(sz))
 		}
 		detail := strings.Join(parts, "|")
-		tot := int64(p.tot)
 		var delta string
 		switch {
-		case i == 0:
+		case !havePrev:
 			delta = "—"
-		case tot-prevTot > 0:
-			delta = "+" + snapshot.FormatBytes(tot - prevTot)
-		case tot-prevTot < 0:
-			delta = snapshot.FormatBytes(tot - prevTot)
+		case d.total-prevTotal > 0:
+			delta = "+" + snapshot.FormatBytes(d.total-prevTotal)
+		case d.total-prevTotal < 0:
+			delta = snapshot.FormatBytes(d.total - prevTotal)
 		default:
 			delta = "0"
 		}
-		prevTot = tot
-		fmt.Fprintf(&b, `<rect class="chart-hit" data-i="%d" data-t="%s" data-total="%s" data-delta="%s" data-detail="%s" x="%.2f" y="0" width="%.2f" height="%d" fill="transparent" pointer-events="all"/>`,
-			i,
-			h.Points[i].StartedAt.Format("01-02 15:04"),
-			snapshot.FormatBytes(tot),
-			delta,
-			detail,
-			hx, hw, viewH,
-		)
+		prevTotal = d.total
+		havePrev = true
+		stamp := d.date.Format("01-02")
+		if gran == "hour" {
+			stamp = d.date.Format("01-02 15:04")
+		}
+		fmt.Fprintf(&b, `<rect class="chart-hit" data-i="%d" data-t="%s" data-total="%s" data-delta="%s" data-detail="%s" x="%.2f" y="0" width="%.2f" height="%d" fill="transparent" pointer-events="all"/>`, i, stamp, snapshot.FormatBytes(d.total), delta, detail, slotX, slotW, viewH)
 	}
 	b.WriteString("</svg>")
-	// legend
+
+	// Legend — top N tools. Total is the sum of segments so it has no separate
+	// swatch.
 	b.WriteString("<div class=\"chart-legend\">")
-	for _, l := range layers {
-		label := labels[l.id]
-		if label == "" {
-			label = l.id
+	for li, tid := range topTools {
+		lbl := labels[tid]
+		if lbl == "" {
+			lbl = tid
 		}
-		fmt.Fprintf(&b, "<span><i style=\"background:%s\"></i>%s</span>", l.col, html.EscapeString(label))
+		col := palette[li%len(palette)]
+		fmt.Fprintf(&b, "<span><i style=\"background:%s\"></i>%s</span>", col, html.EscapeString(lbl))
 	}
-	fmt.Fprintf(&b, "<span><i style=\"background:#d6dde6\"></i>%s</span>", bundle.T(lang, "legend_total"))
 	b.WriteString("</div>")
 	return template.HTML(b.String())
 }
