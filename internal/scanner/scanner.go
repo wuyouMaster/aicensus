@@ -19,6 +19,11 @@ type dirAgg struct {
 	mtime time.Time
 }
 
+type dirTotals struct {
+	size  int64
+	files int64
+}
+
 type subdirInfo struct {
 	Path  string
 	Size  int64
@@ -26,14 +31,15 @@ type subdirInfo struct {
 }
 
 type pathResult struct {
-	Entry     registry.Entry
-	ToolID    string
-	ToolLabel string
-	Found     bool
-	Size      int64
-	Files     int64
-	MTime     time.Time
-	TopSubs   []subdirInfo
+	Entry               registry.Entry
+	ToolID              string
+	ToolLabel           string
+	Found               bool
+	Size                int64
+	Files               int64
+	MTime               time.Time
+	TopSubs             []subdirInfo
+	CoveredByChildPaths bool
 }
 
 type resolvedTool struct {
@@ -72,6 +78,12 @@ func Scan(reg *registry.Registry, progress io.Writer) (*snapshot.Snapshot, error
 				fmt.Fprintf(progress, "scan %s ... ", shortPath(e.Path))
 			}
 			r := scanPath(item.tool.ID, item.tool.Label, e, skip)
+			if r.CoveredByChildPaths {
+				if progress != nil {
+					fmt.Fprintln(progress, "covered by child paths")
+				}
+				continue
+			}
 			if progress != nil {
 				if r.Found {
 					fmt.Fprintf(progress, "%s\n", snapshot.FormatBytes(r.Size))
@@ -131,16 +143,23 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 	}
 
 	rootKey := filepath.Clean(e.Path)
+	hasChildPath := hasNestedPath(rootKey, skip)
 	agg := map[string]*dirAgg{rootKey: {}}
 	_ = filepath.WalkDir(e.Path, func(p string, d os.DirEntry, werr error) error {
 		if werr != nil {
 			return nil
 		}
-		if d.IsDir() {
-			key := filepath.Clean(p)
-			if p != e.Path && skip[key] {
+		// A separately registered path owns its complete subtree. Skip both
+		// nested directories and nested files so parent and child entries never
+		// count the same bytes twice.
+		if p != e.Path && skip[filepath.Clean(p)] {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
+			return nil
+		}
+		if d.IsDir() {
+			key := filepath.Clean(p)
 			if _, ok := agg[key]; !ok {
 				agg[key] = &dirAgg{}
 			}
@@ -167,10 +186,11 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 		return nil
 	})
 
-	// Bottom-up: each dir's recursive size = own direct size + sum of child recursive sizes.
-	recursive := map[string]int64{}
+	// Bottom-up: each dir's recursive size and file count include its direct
+	// contents plus all descendants.
+	recursive := make(map[string]dirTotals, len(agg))
 	for p, a := range agg {
-		recursive[p] = a.size
+		recursive[p] = dirTotals{size: a.size, files: a.files}
 	}
 	keys := make([]string, 0, len(agg))
 	for k := range agg {
@@ -181,25 +201,34 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 		if p == rootKey {
 			continue
 		}
-		recursive[filepath.Dir(p)] += recursive[p]
+		parent := filepath.Dir(p)
+		child := recursive[p]
+		parentTotal := recursive[parent]
+		parentTotal.size += child.size
+		parentTotal.files += child.files
+		recursive[parent] = parentTotal
 	}
 
-	res.Size = recursive[rootKey]
-	var totalFiles int64
+	rootTotal := recursive[rootKey]
+	res.Size = rootTotal.size
+	res.Files = rootTotal.files
+	// A directory with no remaining files after nested registered paths have
+	// been skipped is only a container for those child entries. Do not emit a
+	// redundant parent result in that case.
+	res.CoveredByChildPaths = hasChildPath && res.Files == 0
 	var latest time.Time
 	for _, a := range agg {
-		totalFiles += a.files
 		if a.mtime.After(latest) {
 			latest = a.mtime
 		}
 	}
-	res.Files = totalFiles
 	res.MTime = latest
 
 	var subs []subdirInfo
-	for p, a := range agg {
-		if filepath.Dir(p) == rootKey && p != rootKey && recursive[p] > 0 {
-			subs = append(subs, subdirInfo{Path: p, Size: recursive[p], Files: a.files})
+	for p := range agg {
+		totals := recursive[p]
+		if filepath.Dir(p) == rootKey && p != rootKey && totals.size > 0 {
+			subs = append(subs, subdirInfo{Path: p, Size: totals.size, Files: totals.files})
 		}
 	}
 	sort.Slice(subs, func(i, j int) bool { return subs[i].Size > subs[j].Size })
@@ -208,6 +237,20 @@ func scanPath(toolID, toolLabel string, e registry.Entry, skip map[string]bool) 
 	}
 	res.TopSubs = subs
 	return res
+}
+
+func hasNestedPath(root string, paths map[string]bool) bool {
+	for candidate := range paths {
+		if candidate == root {
+			continue
+		}
+		rel, err := filepath.Rel(root, candidate)
+		if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 func shortPath(p string) string {

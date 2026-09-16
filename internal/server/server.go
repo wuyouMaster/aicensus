@@ -8,15 +8,17 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/uwa/aisweep/internal/i18n"
+	"github.com/uwa/aisweep/internal/registry"
 	"github.com/uwa/aisweep/internal/snapshot"
 )
 
-//go:embed templates/*
+//go:embed templates
 var templatesFS embed.FS
 
 var bundle = i18n.New()
@@ -27,6 +29,7 @@ var tpl = template.Must(template.New("").Funcs(template.FuncMap{
 	"bytes":     snapshot.FormatBytes,
 	"pct":       pct,
 	"shortPath": shortPath,
+	"toolIcon":  toolIcon,
 	"sparkline": sparkline,
 	"sub":       func(a, b int64) int64 { return a - b },
 	"subIdx":    func(a, b int) int { return a - b },
@@ -44,6 +47,8 @@ func Serve(host string, port int, scanFn func() error) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/tools", handleTools)
+	mux.HandleFunc("/guide", handleGuide)
+	mux.HandleFunc("/guide/", handleGuideTool)
 	mux.HandleFunc("/tool/", handleTool)
 	if scanFn != nil {
 		mux.HandleFunc("/api/scan", func(w http.ResponseWriter, r *http.Request) {
@@ -129,6 +134,138 @@ func handleTools(w http.ResponseWriter, r *http.Request) {
 		"Lang":      lang,
 	}
 	_ = tpl.ExecuteTemplate(w, "tools.html", data)
+}
+
+type guidePath struct {
+	Path           string
+	Category       string
+	Risk           string
+	Note           string
+	Found          bool
+	Size           int64
+	Files          int64
+	ChildPathCount int
+}
+
+type guideTool struct {
+	ID         string
+	Label      string
+	Homepage   string
+	Entries    []guidePath
+	FoundCount int
+}
+
+func handleGuide(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/guide" {
+		http.NotFound(w, r)
+		return
+	}
+	lang := detectLang(r)
+	setLangCookie(w, lang)
+	tools, hasSnapshot, latest := loadGuideTools()
+	data := map[string]any{
+		"Tools":       tools,
+		"HasSnapshot": hasSnapshot,
+		"Snap":        latest,
+		"NavActive":   "guide",
+		"Lang":        lang,
+	}
+	_ = tpl.ExecuteTemplate(w, "guide-list.html", data)
+}
+
+func handleGuideTool(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimPrefix(r.URL.Path, "/guide/")
+	if id == "" || strings.Contains(id, "/") {
+		http.NotFound(w, r)
+		return
+	}
+	lang := detectLang(r)
+	setLangCookie(w, lang)
+	tools, hasSnapshot, latest := loadGuideTools()
+	for _, tool := range tools {
+		if tool.ID != id {
+			continue
+		}
+		data := map[string]any{
+			"Tools":       []guideTool{tool},
+			"HasSnapshot": hasSnapshot,
+			"Snap":        latest,
+			"NavActive":   "guide",
+			"Lang":        lang,
+		}
+		_ = tpl.ExecuteTemplate(w, "guide.html", data)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+func loadGuideTools() ([]guideTool, bool, snapshot.Snapshot) {
+
+	reg, err := registry.Load()
+	if err != nil {
+		reg = registry.New(registry.BuiltinScanners()...)
+	}
+
+	var latest snapshot.Snapshot
+	hasSnapshot := false
+	if snaps, listErr := snapshot.List(); listErr == nil && len(snaps) > 0 {
+		latest = snaps[len(snaps)-1]
+		hasSnapshot = true
+	}
+	observed := map[string]snapshot.Entry{}
+	if hasSnapshot {
+		for _, entry := range latest.Entries {
+			observed[entry.ToolID+"\x00"+entry.Path] = entry
+		}
+	}
+
+	tools := make([]guideTool, 0, len(reg.Tools))
+	for _, tool := range reg.Tools {
+		gt := guideTool{ID: tool.ID, Label: tool.Label, Homepage: tool.Homepage}
+		for _, entry := range tool.AllPaths() {
+			key := tool.ID + "\x00" + entry.Path
+			current, found := observed[key]
+			childPathCount := observedChildCount(tool.ID, entry.Path, observed)
+			if !found && childPathCount > 0 {
+				continue
+			}
+			gp := guidePath{
+				Path:           entry.Path,
+				Category:       entry.Category,
+				Risk:           entry.Risk,
+				Note:           entry.Note,
+				ChildPathCount: childPathCount,
+			}
+			if found {
+				gp.Found = true
+				gp.Size = current.SizeBytes
+				gp.Files = current.FileCount
+				gt.FoundCount++
+			}
+			gt.Entries = append(gt.Entries, gp)
+		}
+		if len(gt.Entries) > 0 {
+			tools = append(tools, gt)
+		}
+	}
+	return tools, hasSnapshot, latest
+}
+
+func observedChildCount(toolID, parent string, observed map[string]snapshot.Entry) int {
+	root := filepath.Clean(parent)
+	count := 0
+	for key := range observed {
+		separator := strings.IndexByte(key, '\x00')
+		if separator < 0 || key[:separator] != toolID {
+			continue
+		}
+		child := filepath.Clean(key[separator+1:])
+		rel, err := filepath.Rel(root, child)
+		if err == nil && rel != "." && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) && !filepath.IsAbs(rel) {
+			count++
+		}
+	}
+	return count
 }
 
 func handleTool(w http.ResponseWriter, r *http.Request) {
@@ -233,6 +370,40 @@ func shortPath(p string) string {
 		return "~" + p[len(home):]
 	}
 	return p
+}
+
+var toolIconFiles = map[string]string{
+	"cursor":          "cursor.svg",
+	"claude-code":     "claude-code.svg",
+	"codex-cli":       "openai.svg",
+	"windsurf":        "windsurf.svg",
+	"trae":            "trae.svg",
+	"antigravity":     "antigravity.svg",
+	"copilot-cli":     "copilot-cli.svg",
+	"huggingface":     "huggingface.svg",
+	"continue":        "continue.svg",
+	"openai-desktop":  "openai.svg",
+	"chatgpt-desktop": "openai.svg",
+	"lm-studio":       "lm-studio.svg",
+	"ollama":          "ollama.svg",
+}
+
+// toolIcon returns a bundled brand mark for known tools. The fallback is a
+// safely escaped initial so user-defined registry entries never inject markup
+// into the page.
+func toolIcon(id, label string) template.HTML {
+	if file, ok := toolIconFiles[id]; ok {
+		if data, err := templatesFS.ReadFile("templates/icons/" + file); err == nil {
+			return template.HTML(`<span class="tool-icon" aria-hidden="true">` + string(data) + `</span>`)
+		}
+	}
+	{
+		initial := "?"
+		if r := []rune(strings.TrimSpace(label)); len(r) > 0 {
+			initial = html.EscapeString(string(r[0]))
+		}
+		return template.HTML(`<span class="tool-icon tool-icon-fallback" aria-hidden="true">` + initial + `</span>`)
+	}
 }
 
 // sparkline renders an inline SVG bar chart of total size aggregated by the

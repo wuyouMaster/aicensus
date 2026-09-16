@@ -15,10 +15,13 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 .container{max-width:720px;margin:0 auto;padding:2rem 1.5rem}
-.nav{display:flex;gap:.25rem;align-items:center;margin-bottom:1.25rem;font-size:.85rem;flex-wrap:wrap}
-.nav a{color:var(--muted);text-decoration:none;padding:.4rem .85rem;border-radius:999px;transition:all .2s}
-.nav a:hover{background:rgba(255,255,255,.5);color:var(--text)}
-.nav a.active{color:#fff;background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 2px 8px rgba(0,122,255,.3)}
+.nav{display:flex;gap:1rem;align-items:center;margin-bottom:1.5rem;font-size:.85rem;flex-wrap:wrap}
+.view-switch{display:inline-flex;align-items:center;gap:.15rem;padding:.18rem;background:rgba(255,255,255,.42);border:1px solid rgba(255,255,255,.68);border-radius:999px;box-shadow:0 2px 10px rgba(60,80,120,.08);-webkit-backdrop-filter:blur(16px) saturate(170%);backdrop-filter:blur(16px) saturate(170%)}
+.view-switch a{display:inline-flex;align-items:center;gap:.38rem;min-height:2rem;padding:.42rem .82rem;border-radius:999px;color:var(--muted);font-weight:500;text-decoration:none;transition:color .2s,background .2s,box-shadow .2s}
+.view-switch a:hover{color:var(--text)}
+.view-switch a.active{color:var(--text);background:rgba(255,255,255,.9);box-shadow:0 2px 6px rgba(60,80,120,.12)}
+.view-switch svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.78}
+.view-switch a.active svg{color:var(--accent);opacity:1}
 .lang-switch{margin-left:auto;display:flex;gap:.25rem;font-size:.75rem;background:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.55);border-radius:999px;padding:.15rem}
 .lang-switch a{padding:.25rem .7rem;border-radius:999px;color:var(--muted)}
 .lang-switch a:hover{color:var(--text)}
@@ -28,9 +31,18 @@ p{color:var(--muted);line-height:1.5}
 code{background:rgba(60,80,120,.08);padding:.1em .4em;border-radius:4px;font-size:.85em;color:var(--text)}
 </style>
 </head><body><div class="container">
-<nav class="nav">
-<a href="/" {{if eq .NavActive "overview"}}class="active"{{end}}>{{t .Lang "nav_overview"}}</a>
-<a href="/tools" {{if eq .NavActive "tools"}}class="active"{{end}}>{{t .Lang "nav_tools"}}</a>
+<nav class="nav" aria-label="{{t .Lang "nav_label"}}">
+<div class="view-switch">
+<a href="/" {{if eq .NavActive "overview"}}class="active" aria-current="page"{{end}}>
+<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h16M8 16v-4M12 16V8M16 16v-6M20 16v-9"/></svg><span>{{t .Lang "nav_overview"}}</span>
+</a>
+<a href="/tools" {{if eq .NavActive "tools"}}class="active" aria-current="page"{{end}}>
+<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>{{t .Lang "nav_tools"}}</span>
+</a>
+<a href="/guide" {{if eq .NavActive "guide"}}class="active" aria-current="page"{{end}}>
+<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg><span>{{t .Lang "nav_guide"}}</span>
+</a>
+</div>
 <span class="lang-switch">
 <a href="#" onclick="setLang('en');return false;" {{if eq .Lang "en"}}class="active"{{end}}>EN</a>
 <a href="#" onclick="setLang('zh');return false;" {{if eq .Lang "zh"}}class="active"{{end}}>中</a>
