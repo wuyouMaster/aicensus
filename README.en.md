@@ -1,17 +1,17 @@
 # AICensus
 
-### AI tools can keep coming. Someone still has to clean up after them.
+### AI tools keep crapping all over your hard drive
 
-AI tools show up every day like roommates who never quite move out: they leave
-caches, sessions, snapshots, logs, models, and configuration all over your
-drive. The leftovers quietly pile up until your disk is full and you still do
-not know who made the mess.
+AI tools keep getting installed one after another. They leave caches, logs,
+sessions, snapshots, and models all over your drive, then walk away like
+nothing happened. The worst part? The mess hides well, so by the time your disk
+is full, you may not even know which tool did it.
 
-AICensus finds that mess, groups it by tool, category, and risk, and records
-how it changes by day or hour. You can see what is taking space, who owns it,
-and what is growing fastest before deciding what to clean up.
+AICensus hunts down the leftovers: who is taking space, where they left it, and
+whether the mess is still growing. Find it all, then clean it up one tool at a
+time.
 
-> AI tools keep moving in. AICensus keeps the receipts.
+> AI tools keep crapping. AICensus keeps catching them. Your hard drive needs a cleanup.
 
 > The executable is still named `aisweep` for compatibility with existing commands, environment variables, and snapshots.
 
